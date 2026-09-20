@@ -81,7 +81,7 @@
     var cfg = HAM.CONFIG.get();
     // 加一个随时间变化的缓存穿透参数，避免 GitHub CDN 在刚写入后返回旧内容
     return request('GET', '/repos/' + encodeURIComponent(cfg.owner) + '/' + encodeURIComponent(cfg.repo) +
-      '/contents/' + encodeURIComponent(path) + '?ref=' + encodeURIComponent(cfg.branch) +
+      '/contents/' + path + '?ref=' + encodeURIComponent(cfg.branch) +
       '&_=' + Date.now())
       .then(function (d) {
         var text = decodeBase64(d.content);
@@ -110,7 +110,7 @@
     if (sha) body.sha = sha;
 
     return request('PUT', '/repos/' + encodeURIComponent(cfg.owner) + '/' + encodeURIComponent(cfg.repo) +
-      '/contents/' + encodeURIComponent(path), body)
+      '/contents/' + path, body)
       .then(function (d) {
         // 返回新 sha，供后续写入使用
         return d && d.content && d.content.sha ? d.content.sha : (d && d.commit && d.commit.sha);
@@ -120,7 +120,7 @@
   function listCommits(path) {
     var cfg = HAM.CONFIG.get();
     return request('GET', '/repos/' + encodeURIComponent(cfg.owner) + '/' + encodeURIComponent(cfg.repo) +
-      '/commits?path=' + encodeURIComponent(path) + '&sha=' + encodeURIComponent(cfg.branch) + '&per_page=50');
+      '/commits?path=' + path + '&sha=' + encodeURIComponent(cfg.branch) + '&per_page=50');
   }
 
   function getUser(token) {
@@ -142,7 +142,7 @@
   function readFileStatus(path) {
     var cfg = HAM.CONFIG.get();
     return request('GET', '/repos/' + encodeURIComponent(cfg.owner) + '/' + encodeURIComponent(cfg.repo) +
-      '/contents/' + encodeURIComponent(path) + '?ref=' + encodeURIComponent(cfg.branch))
+      '/contents/' + path + '?ref=' + encodeURIComponent(cfg.branch))
       .then(function () { return 200; })
       .catch(function (e) { return e.status || 0; });
   }
