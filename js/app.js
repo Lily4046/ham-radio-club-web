@@ -293,6 +293,17 @@
   document.addEventListener('DOMContentLoaded', function () {
     bindLogin();
     bindSettings();
+    applyLoginMode();
     init();
   });
+
+  // PAT 登录模式：未配置 OAuth 时隐藏「使用 GitHub 账号登录」按钮，避免误导
+  function applyLoginMode() {
+    if (!HAM.CONFIG.get().clientId) {
+      var oauthBtn = document.getElementById('btnLoginOAuth');
+      var divider = document.getElementById('loginDivider');
+      if (oauthBtn) oauthBtn.classList.add('hidden');
+      if (divider) divider.classList.add('hidden');
+    }
+  }
 })();
