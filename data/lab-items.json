@@ -1,0 +1,28 @@
+{
+  "items": [
+    {
+      "id": "id_seed_lab_001",
+      "name": "电烙铁",
+      "category": "工具",
+      "quantity": 3,
+      "location": "工作台 A 区",
+      "status": "在库",
+      "borrower": "",
+      "notes": "其中一把尖头损坏",
+      "updatedAt": "2025-01-01T00:00:00.000Z",
+      "updatedBy": "示例数据"
+    },
+    {
+      "id": "id_seed_lab_002",
+      "name": "万用表",
+      "category": "仪器仪表",
+      "quantity": 2,
+      "location": "仪器柜 2 层",
+      "status": "借出",
+      "borrower": "张三",
+      "notes": "",
+      "updatedAt": "2025-01-02T00:00:00.000Z",
+      "updatedBy": "示例数据"
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+name = "ham-radio-oauth-proxy"
+main = "oauth-proxy.js"
+compatibility_date = "2024-01-01"
+
+# GITHUB_CLIENT_ID 与 GITHUB_CLIENT_SECRET 通过 secret 注入：
+#   wrangler secret put GITHUB_CLIENT_ID
+#   wrangler secret put GITHUB_CLIENT_SECRET
+# 不要把真实密钥写在这个文件里。

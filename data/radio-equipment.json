@@ -1,0 +1,18 @@
+{
+  "items": [
+    {
+      "id": "id_seed_radio_001",
+      "name": "FT-991A",
+      "model": "Yaesu FT-991A",
+      "category": "收发信机",
+      "callsign": "BG1AAA",
+      "serial": "9M123456",
+      "status": "正常",
+      "location": "电台室 1 号位",
+      "assignee": "李四",
+      "notes": "带 3 年保修",
+      "updatedAt": "2025-01-10T00:00:00.000Z",
+      "updatedBy": "示例数据"
+    }
+  ]
+}

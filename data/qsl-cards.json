@@ -1,0 +1,19 @@
+{
+  "items": [
+    {
+      "id": "id_seed_qsl_001",
+      "callsign": "JA1ABC",
+      "ourCallsign": "BG1AAA",
+      "band": "20m",
+      "mode": "FT8",
+      "date": "2025-01-05",
+      "timeUtc": "08:30",
+      "rst": "-14",
+      "cardStatus": "已收到",
+      "replied": "已回信",
+      "notes": "电子 QSL 已确认",
+      "updatedAt": "2025-01-05T00:00:00.000Z",
+      "updatedBy": "示例数据"
+    }
+  ]
+}

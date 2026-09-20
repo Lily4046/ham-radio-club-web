@@ -1,0 +1,4 @@
+/* 云主机/边缘平台（Cloudflare Pages、Netlify 等）安全响应头；GitHub Pages 会自动忽略此文件 */
+/*
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: no-referrer
