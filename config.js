@@ -23,9 +23,9 @@
 
     // ---- 可选：OAuth 登录模式（用于成员各自用 GitHub 账号登录）----
     // 如果只想用「个人访问令牌 PAT」登录，这三项保持为空字符串即可。
-    clientId: '',      // GitHub OAuth App 的 Client ID
-    redirectUri: '',   // 站点完整地址，例如 https://<owner>.github.io/<repo>/
-    proxyUrl: '',      // Cloudflare Worker 地址，例如 https://xxx.workers.dev
+    clientId: 'Lily4046',      // GitHub OAuth App 的 Client ID
+      redirectUri: 'https://Lily4046.github.io/ham-radio-club-web/',   // 站点完整地址，例如 https://<owner>.github.io/<repo>/
+      proxyUrl: 'https://ham-radio-oauth-proxy.lily4046.workers.dev',      // Cloudflare Worker 地址，例如 https://xxx.workers.dev
 
     // 数据文件在仓库中的相对路径（一般无需修改）
     files: {
