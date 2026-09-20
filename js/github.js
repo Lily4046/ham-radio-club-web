@@ -33,6 +33,7 @@
     return fetch(API_BASE + path, {
       method: method,
       headers: headers,
+      cache: 'no-store',
       body: body !== undefined && body !== null ? JSON.stringify(body) : undefined
     }).then(function (res) {
       if (res.status === 204) return null;
@@ -78,8 +79,10 @@
   /* ---------- 高层 API ---------- */
   function readFile(path) {
     var cfg = HAM.CONFIG.get();
+    // 加一个随时间变化的缓存穿透参数，避免 GitHub CDN 在刚写入后返回旧内容
     return request('GET', '/repos/' + encodeURIComponent(cfg.owner) + '/' + encodeURIComponent(cfg.repo) +
-      '/contents/' + encodeURIComponent(path) + '?ref=' + encodeURIComponent(cfg.branch))
+      '/contents/' + encodeURIComponent(path) + '?ref=' + encodeURIComponent(cfg.branch) +
+      '&_=' + Date.now())
       .then(function (d) {
         var text = decodeBase64(d.content);
         return {
