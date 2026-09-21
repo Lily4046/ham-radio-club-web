@@ -41,7 +41,13 @@ body {
   color: #fff;
 }
 .brand { display: flex; align-items: center; gap: 10px; }
-.logo { font-size: 22px; }
+.logo {
+  height: 34px;
+  width: auto;
+  border-radius: 6px;
+  display: block;
+  background: #fff;
+}
 .title { font-weight: 600; font-size: 16px; }
 .topbar-actions { display: flex; align-items: center; gap: 12px; }
 .user-badge { display: flex; align-items: center; gap: 6px; font-size: 13px; color: #cbd5e1; }
@@ -187,7 +193,13 @@ body {
   max-width: 400px;
   box-shadow: var(--shadow-lg);
 }
-.login-logo { font-size: 40px; text-align: center; }
+.login-logo {
+  display: block;
+  width: 100%;
+  max-width: 340px;
+  margin: 0 auto 10px;
+  border-radius: 10px;
+}
 .login-card h1 { text-align: center; font-size: 20px; margin: 8px 0 4px; }
 .muted { color: var(--muted); }
 .small { font-size: 12px; }
