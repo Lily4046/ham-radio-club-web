@@ -92,7 +92,19 @@
     }).then(function (res) {
       return res.json().then(function (data) {
         if (!res.ok || !data.access_token) {
-          throw new Error((data && (data.error_description || data.error)) || '令牌交换失败');
+          var errCode = data && data.error;
+          var errDesc = data && data.error_description;
+          var msg;
+          if (errCode === 'bad_verification_code') {
+            msg = '授权码已过期或失效，请重新点击「使用 GitHub 账号登录」再试。';
+          } else if (errDesc) {
+            msg = errDesc;
+          } else if (errCode) {
+            msg = errCode;
+          } else {
+            msg = '令牌交换失败（HTTP ' + res.status + '）';
+          }
+          throw new Error(msg);
         }
         // 清理地址栏中的 code/state，避免刷新重复交换
         window.history.replaceState(null, '', window.location.pathname + window.location.hash);
