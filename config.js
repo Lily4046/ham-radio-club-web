@@ -21,11 +21,11 @@
     // 默认分支（绝大多数新仓库是 main，老仓库可能是 master）
     branch: 'main',
 
-    // ---- 可选：OAuth 登录模式（用于成员各自用 GitHub 账号登录）----
-    // 如果只想用「个人访问令牌 PAT」登录，这三项保持为空字符串即可。
-    clientId: '',      // GitHub OAuth App 的 Client ID（使用 PAT 登录时留空）
-    redirectUri: '',   // 站点完整地址，例如 https://<owner>.github.io/<repo>/
-    proxyUrl: '',      // Cloudflare Worker 地址，例如 https://xxx.workers.dev
+    // ---- OAuth 登录模式（成员点「使用 GitHub 账号登录」，不用输入令牌）----
+    // 三个值都填好才会显示 OAuth 按钮。proxyUrl 是腾讯云函数地址，见 tencent-scf/README.md。
+    clientId: 'Ov23liNW6OynAyeVvehv',                                // GitHub OAuth App 的 Client ID
+    redirectUri: 'https://lily4046.github.io/ham-radio-club-web/',  // 站点完整地址（回调）
+    proxyUrl: '',                                                   // 腾讯云函数地址（去掉 /exchange，末尾不加 /）
 
     // 数据文件在仓库中的相对路径（一般无需修改）
     files: {

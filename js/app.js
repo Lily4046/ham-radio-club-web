@@ -297,9 +297,11 @@
     init();
   });
 
-  // PAT 登录模式：未配置 OAuth 时隐藏「使用 GitHub 账号登录」按钮，避免误导
+  // 仅当 OAuth 三项（clientId/redirectUri/proxyUrl）都配齐时才显示「使用 GitHub 账号登录」按钮
   function applyLoginMode() {
-    if (!HAM.CONFIG.get().clientId) {
+    var cfg = HAM.CONFIG.get();
+    var oauthReady = !!(cfg.clientId && cfg.redirectUri && cfg.proxyUrl);
+    if (!oauthReady) {
       var oauthBtn = document.getElementById('btnLoginOAuth');
       var divider = document.getElementById('loginDivider');
       if (oauthBtn) oauthBtn.classList.add('hidden');
