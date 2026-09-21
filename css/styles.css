@@ -37,33 +37,32 @@ body {
   align-items: center;
   justify-content: space-between;
   padding: 12px 24px;
-  background: #0f172a;
-  color: #fff;
+  background: #fff;
+  color: #1f2937;
+  border-bottom: 1px solid var(--border);
 }
 .brand { display: flex; align-items: center; gap: 10px; }
 .logo {
-  height: 34px;
+  height: 36px;
   width: auto;
-  border-radius: 6px;
   display: block;
-  background: #fff;
 }
 .title { font-weight: 600; font-size: 16px; }
 .topbar-actions { display: flex; align-items: center; gap: 12px; }
-.user-badge { display: flex; align-items: center; gap: 6px; font-size: 13px; color: #cbd5e1; }
-.user-badge img { width: 24px; height: 24px; border-radius: 50%; border: 1px solid #334155; }
+.user-badge { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }
+.user-badge img { width: 24px; height: 24px; border-radius: 50%; border: 1px solid var(--border); }
 
-/* 右上角「设置」按钮：深色顶栏上的白色实心按钮，醒目 */
+/* 右上角「设置」按钮：浅色顶栏上的蓝色实心按钮，醒目 */
 .topbar .btn {
-  background: #fff;
-  color: #0f172a;
-  border-color: #fff;
+  background: var(--primary);
+  color: #fff;
+  border-color: var(--primary);
   font-weight: 600;
 }
 .topbar .btn:hover {
-  background: #e2e8f0;
-  border-color: #e2e8f0;
-  color: #0f172a;
+  background: var(--primary-hover);
+  border-color: var(--primary-hover);
+  color: #fff;
 }
 
 /* ---------- 标签页 ---------- */
