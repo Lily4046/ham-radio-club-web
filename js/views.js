@@ -7,6 +7,8 @@
   window.HAM = window.HAM || {};
 
   var currentCk = 'lab';
+  var filters = {};                            // 字段筛选：{ fieldKey: value }，空值表示全部
+  var sortState = { key: null, dir: 1 };       // 当前排序列与方向（1 升序 / -1 降序）
 
   function currentKey() {
     return currentCk;
@@ -17,12 +19,49 @@
     return v;
   }
 
+  /* ---------- 筛选 / 排序 / 查重辅助 ---------- */
+  function distinctValues(items, key) {
+    var set = {};
+    items.forEach(function (it) {
+      var v = it[key];
+      if (v !== null && v !== undefined && String(v).trim() !== '') set[String(v).trim()] = true;
+    });
+    return Object.keys(set).sort(function (a, b) { return a.localeCompare(b, 'zh-CN'); });
+  }
+
+  function compareValues(a, b) {
+    var av = (a === null || a === undefined) ? '' : a;
+    var bv = (b === null || b === undefined) ? '' : b;
+    if (av === '' && bv === '') return 0;
+    if (av === '') return 1;   // 空值排最后（升序）
+    if (bv === '') return -1;
+    if (typeof av === 'number' && typeof bv === 'number') return av - bv;
+    var as = String(av), bs = String(bv);
+    var ad = Date.parse(as), bd = Date.parse(bs);
+    if (!isNaN(ad) && !isNaN(bd)) return ad - bd;
+    return as.localeCompare(bs, 'zh-CN');
+  }
+
+  function findDuplicate(ck, patch, excludeId) {
+    var model = HAM.Models.MODELS[ck];
+    if (!model.dedup || !model.dedup.fields || !model.dedup.fields.length) return null;
+    var data = HAM.Store.getCached(ck);
+    var items = data ? data.items : [];
+    function norm(v) { return String(v === null || v === undefined ? '' : v).trim().toLowerCase(); }
+    var cmpKeys = model.dedup.fields.filter(function (k) { return norm(patch[k]) !== ''; });
+    if (!cmpKeys.length) return null;
+    return items.find(function (it) {
+      if (excludeId && it.id === excludeId) return false;
+      return cmpKeys.every(function (k) { return norm(it[k]) === norm(patch[k]); });
+    }) || null;
+  }
+
   /* ---------- 渲染主视图 ---------- */
   function renderCollection(ck) {
     currentCk = ck;
+    filters = {};
+    sortState = { key: null, dir: 1 };
     var model = HAM.Models.MODELS[ck];
-    var data = HAM.Store.getCached(ck);
-    var items = data ? data.items : [];
 
     var container = document.getElementById('viewContainer');
     container.innerHTML =
@@ -36,12 +75,16 @@
           '<button class="btn btn-primary" id="btnAdd">＋ 新增</button>' +
         '</div>' +
       '</div>' +
+      '<div class="filter-bar" id="filterBar"></div>' +
       '<div class="meta-line" id="metaLine"></div>' +
       '<div class="table-wrap">' +
         '<table class="data-table">' +
           '<thead><tr>' +
-            model.fields.map(function (f) { return '<th>' + HAM.UI.escapeHtml(f.label) + '</th>'; }).join('') +
-            '<th>更新人 / 时间</th>' +
+            model.fields.map(function (f) {
+              return '<th data-sort="' + HAM.UI.escapeHtml(f.key) + '" class="sortable">' +
+                HAM.UI.escapeHtml(f.label) + '<span class="sort-arrow"></span></th>';
+            }).join('') +
+            '<th data-sort="updatedAt" class="sortable">更新人 / 时间<span class="sort-arrow"></span></th>' +
             '<th class="actions-col">操作</th>' +
           '</tr></thead>' +
           '<tbody id="tableBody"></tbody>' +
@@ -49,9 +92,11 @@
       '</div>' +
       '<div id="emptyState" class="empty hidden">暂无数据，点击右上角「新增」开始录入。</div>';
 
+    renderFilterBar(ck);
     renderRows();
     updateCount();
     bindToolbar(ck);
+    bindSort();
   }
 
   function renderRows() {
@@ -61,14 +106,41 @@
     var q = (document.getElementById('searchInput').value || '').trim().toLowerCase();
 
     var filtered = items.filter(function (it) {
-      if (!q) return true;
-      return JSON.stringify(it).toLowerCase().indexOf(q) !== -1;
+      if (q && JSON.stringify(it).toLowerCase().indexOf(q) === -1) return false;
+      var keys = Object.keys(filters);
+      for (var i = 0; i < keys.length; i++) {
+        var k = keys[i];
+        if (!filters[k]) continue;
+        var v = (it[k] === undefined || it[k] === null) ? '' : String(it[k]).trim();
+        if (v !== filters[k]) return false;
+      }
+      return true;
     });
+
+    if (sortState.key) {
+      var key = sortState.key;
+      var dir = sortState.dir;
+      filtered.sort(function (a, b) { return compareValues(a[key], b[key]) * dir; });
+    }
 
     var body = document.getElementById('tableBody');
     body.innerHTML = filtered.map(function (it) { return rowHtml(model, it); }).join('');
 
-    document.getElementById('emptyState').classList.toggle('hidden', filtered.length > 0);
+    var empty = document.getElementById('emptyState');
+    if (empty) {
+      empty.classList.toggle('hidden', filtered.length > 0);
+      if (filtered.length === 0) {
+        empty.textContent = items.length > 0 ? '没有符合当前搜索/筛选条件的记录。' : '暂无数据，点击右上角「新增」开始录入。';
+      }
+    }
+
+    var hint = document.getElementById('filterHint');
+    if (hint) {
+      var active = !!q || Object.keys(filters).some(function (k) { return !!filters[k]; });
+      hint.textContent = active ? ('筛选/搜索后 ' + filtered.length + ' / 共 ' + items.length + ' 条') : '';
+    }
+
+    syncFilterOptions();
 
     body.querySelectorAll('[data-action]').forEach(function (btn) {
       btn.addEventListener('click', function () {
@@ -100,6 +172,94 @@
     document.getElementById('btnAdd').addEventListener('click', function () { showForm(ck, null); });
     document.getElementById('btnHistory').addEventListener('click', function () { showHistory(ck); });
     document.getElementById('btnExport').addEventListener('click', function () { exportData(ck); });
+  }
+
+  /* ---------- 筛选栏 ---------- */
+  function renderFilterBar(ck) {
+    var model = HAM.Models.MODELS[ck];
+    var selectFields = model.fields.filter(function (f) { return f.type === 'select'; });
+    var bar = document.getElementById('filterBar');
+    if (!bar) return;
+
+    if (!selectFields.length) {
+      bar.innerHTML = '';
+      return;
+    }
+
+    bar.innerHTML =
+      '<span class="filter-label">筛选：</span>' +
+      selectFields.map(function (f) {
+        return '<select class="filter-select" data-filter-key="' + HAM.UI.escapeHtml(f.key) +
+          '" data-filter-label="' + HAM.UI.escapeHtml(f.label) + '"></select>';
+      }).join('') +
+      '<button class="btn btn-sm btn-ghost" id="btnClearFilter">✕ 清除</button>' +
+      '<span class="filter-hint muted small" id="filterHint"></span>';
+
+    syncFilterOptions();
+
+    bar.querySelectorAll('.filter-select').forEach(function (sel) {
+      sel.addEventListener('change', function () {
+        filters[sel.getAttribute('data-filter-key')] = sel.value;
+        renderRows();
+      });
+    });
+
+    var clearBtn = bar.querySelector('#btnClearFilter');
+    if (clearBtn) {
+      clearBtn.addEventListener('click', function () {
+        filters = {};
+        bar.querySelectorAll('.filter-select').forEach(function (s) { s.value = ''; });
+        renderRows();
+      });
+    }
+  }
+
+  function syncFilterOptions() {
+    var data = HAM.Store.getCached(currentCk);
+    var items = data ? data.items : [];
+    document.querySelectorAll('#filterBar .filter-select').forEach(function (sel) {
+      var key = sel.getAttribute('data-filter-key');
+      var label = sel.getAttribute('data-filter-label') || key;
+      var selected = sel.value;
+      var distinct = distinctValues(items, key);
+      sel.innerHTML = '<option value="">' + HAM.UI.escapeHtml(label) + '：全部</option>' +
+        distinct.map(function (v) {
+          return '<option value="' + HAM.UI.escapeHtml(v) + '">' + HAM.UI.escapeHtml(v) + '</option>';
+        }).join('');
+      if (selected && distinct.indexOf(selected) !== -1) sel.value = selected;
+    });
+  }
+
+  /* ---------- 表头排序 ---------- */
+  function bindSort() {
+    document.querySelectorAll('th[data-sort]').forEach(function (th) {
+      th.addEventListener('click', function () {
+        var key = th.getAttribute('data-sort');
+        if (sortState.key === key) {
+          sortState.dir = sortState.dir === 1 ? -1 : 1;
+        } else {
+          sortState.key = key;
+          sortState.dir = 1;
+        }
+        renderSortIndicators();
+        renderRows();
+      });
+    });
+  }
+
+  function renderSortIndicators() {
+    document.querySelectorAll('th[data-sort]').forEach(function (th) {
+      var key = th.getAttribute('data-sort');
+      var arrow = th.querySelector('.sort-arrow');
+      if (!arrow) return;
+      if (sortState.key === key) {
+        arrow.textContent = sortState.dir === 1 ? ' ▲' : ' ▼';
+        th.classList.add('sorted');
+      } else {
+        arrow.textContent = '';
+        th.classList.remove('sorted');
+      }
+    });
   }
 
   function refreshCurrent() {
@@ -162,11 +322,25 @@
 
     var modal = HAM.UI.openModal((isEdit ? '编辑' : '新增') + ' · ' + model.title, '' +
       '<form id="itemForm" onsubmit="return false;">' + fieldsHtml +
+        '<div id="dedupWarn" class="dedup-warn hidden"></div>' +
         '<div class="modal-actions">' +
           '<button type="button" class="btn btn-ghost" data-close="modal">取消</button>' +
           '<button type="submit" class="btn btn-primary" id="btnSave">保存</button>' +
         '</div>' +
       '</form>');
+
+    var btn = modal.querySelector('#btnSave');
+    var dedupWarn = modal.querySelector('#dedupWarn');
+    var dedupOverride = false;
+
+    // 修改任一字段后，重置「忽略查重」状态，让下次保存重新查重
+    modal.querySelector('#itemForm').addEventListener('input', function () {
+      if (dedupOverride) {
+        dedupOverride = false;
+        if (dedupWarn) dedupWarn.classList.add('hidden');
+        btn.textContent = '保存';
+      }
+    });
 
     modal.querySelector('#itemForm').addEventListener('submit', function (ev) {
       ev.preventDefault();
@@ -181,10 +355,24 @@
         return;
       }
 
+      // 查重：命中且尚未确认忽略时，先提示、要求二次点击确认
+      if (!dedupOverride) {
+        var dup = findDuplicate(ck, patch, isEdit ? item.id : null);
+        if (dup) {
+          dedupOverride = true;
+          var dupName = dup.callsign || dup[model.fields[0].key] || '—';
+          dedupWarn.innerHTML = '⚠ 疑似重复：已存在「' +
+            HAM.UI.escapeHtml(model.dedup ? model.dedup.label : '查重字段') +
+            '」相同的记录（对方呼号「' + HAM.UI.escapeHtml(String(dupName)) + '」）。再次点击「保存」将忽略查重并保存。';
+          dedupWarn.classList.remove('hidden');
+          btn.textContent = '确认保存（忽略查重）';
+          return;
+        }
+      }
+
       var user = HAM.Auth.getUser();
       var login = user ? user.login : '匿名';
 
-      var btn = modal.querySelector('#btnSave');
       btn.disabled = true;
       btn.textContent = '保存中…';
 

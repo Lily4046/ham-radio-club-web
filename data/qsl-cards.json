@@ -11,6 +11,8 @@
       "rst": "-14",
       "cardStatus": "已收到",
       "replied": "已回信",
+      "senderName": "T. Sato",
+      "senderAddress": "东京都（回信地址示例）",
       "notes": "电子 QSL 已确认",
       "updatedAt": "2025-01-05T00:00:00.000Z",
       "updatedBy": "示例数据"

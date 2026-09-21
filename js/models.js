@@ -29,6 +29,8 @@
     { key: 'rst', label: '信号报告', type: 'text', required: false },
     { key: 'cardStatus', label: '卡片状态', type: 'select', options: ['未收到', '已收到', '已寄出', '双向确认'], required: false, default: '未收到' },
     { key: 'replied', label: '是否回信', type: 'select', options: ['已回信', '未回信'], required: false, default: '未回信' },
+    { key: 'senderName', label: '发信人', type: 'text', required: false },
+    { key: 'senderAddress', label: '来信地址', type: 'textarea', required: false },
     { key: 'notes', label: '备注', type: 'textarea', required: false }
   ];
 
@@ -51,6 +53,10 @@
       title: 'QSL 卡',
       icon: '📮',
       fields: QSL_FIELDS,
+      dedup: {
+        fields: ['callsign', 'date', 'band', 'mode'],
+        label: '对方呼号 + 通联日期 + 波段 + 模式'
+      },
       stats: {
         title: '回信统计',
         field: 'replied',

@@ -439,3 +439,52 @@ body {
   #toastRoot { top: auto; bottom: 16px; left: 16px; right: 16px; }
   .toast { max-width: none; }
 }
+
+/* ---------- 筛选栏 ---------- */
+.filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+.filter-label { color: var(--muted); font-size: 13px; }
+.filter-select {
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 13px;
+  background: #fff;
+  max-width: 180px;
+}
+.filter-select:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, .12);
+}
+.filter-hint { color: var(--muted); font-size: 12px; }
+
+/* ---------- 可排序表头 ---------- */
+.data-table th.sortable {
+  cursor: pointer;
+  user-select: none;
+}
+.data-table th.sortable:hover { color: var(--primary); }
+.data-table th.sorted { color: var(--primary); }
+.sort-arrow { font-size: 10px; margin-left: 2px; }
+
+/* ---------- 查重提示 ---------- */
+.dedup-warn {
+  padding: 10px 12px;
+  margin-bottom: 12px;
+  background: #fffbeb;
+  border: 1px solid #fcd34d;
+  border-radius: 8px;
+  color: #92400e;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+@media (max-width: 640px) {
+  .filter-select { flex: 1 1 auto; max-width: none; }
+}

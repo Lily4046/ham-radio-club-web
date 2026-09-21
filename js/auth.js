@@ -90,19 +90,27 @@
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ code: code, state: stateStr })
     }).then(function (res) {
-      return res.json().then(function (data) {
+      // 用 text() 读取，避免代理返回非 JSON 时 res.json() 抛错掩盖真实原因
+      return res.text().then(function (text) {
+        var data = {};
+        try { data = JSON.parse(text) || {}; } catch (e) { data = { __raw: text }; }
+
         if (!res.ok || !data.access_token) {
-          var errCode = data && data.error;
-          var errDesc = data && data.error_description;
+          var errCode = data.error || data.errorCode;
+          var errDesc = data.error_description || data.errorMessage || data.message ||
+            (data.Error && (data.Error.Message || data.Error.Code));
           var msg;
           if (errCode === 'bad_verification_code') {
             msg = '授权码已过期或失效，请重新点击「使用 GitHub 账号登录」再试。';
           } else if (errDesc) {
-            msg = errDesc;
+            msg = errDesc + '（HTTP ' + res.status + '）';
           } else if (errCode) {
-            msg = errCode;
+            msg = errCode + '（HTTP ' + res.status + '）';
           } else {
             msg = '令牌交换失败（HTTP ' + res.status + '）';
+            if (data.__raw && String(data.__raw).trim()) {
+              msg += '：' + String(data.__raw).trim().slice(0, 300);
+            }
           }
           throw new Error(msg);
         }
