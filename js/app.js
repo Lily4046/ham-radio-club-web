@@ -16,9 +16,11 @@
     // OAuth 回调
     if (params.get('code')) {
       showLogin();
+      showOAuthLoading();
       HAM.Auth.handleOAuthCallback().then(function () {
         enterApp();
       }).catch(function (e) {
+        hideOAuthLoading();
         showLoginError(e.message);
       });
       return;
@@ -45,6 +47,16 @@
     var el = document.getElementById('loginError');
     el.textContent = msg;
     el.classList.remove('hidden');
+  }
+
+  function showOAuthLoading() {
+    var el = document.getElementById('oauthLoading');
+    if (el) el.classList.remove('hidden');
+  }
+
+  function hideOAuthLoading() {
+    var el = document.getElementById('oauthLoading');
+    if (el) el.classList.add('hidden');
   }
 
   /* ---------- 进入应用 ---------- */

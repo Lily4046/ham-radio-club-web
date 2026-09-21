@@ -209,6 +209,27 @@ body {
 }
 .divider::before, .divider::after { content: ''; flex: 1; height: 1px; background: var(--border); }
 
+/* OAuth 登录中的加载提示 */
+.oauth-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 14px;
+  color: var(--muted);
+  font-size: 14px;
+}
+.spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--border);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: spin .7s linear infinite;
+  flex-shrink: 0;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
 /* ---------- 表单 ---------- */
 .form-field { margin-bottom: 14px; }
 .form-field label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 4px; }
