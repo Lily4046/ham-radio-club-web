@@ -25,7 +25,7 @@
     // 三个值都填好才会显示 OAuth 按钮。proxyUrl 是腾讯云函数地址，见 tencent-scf/README.md。
     clientId: 'Ov23liNW6OynAyeVvehv',                                // GitHub OAuth App 的 Client ID
     redirectUri: 'https://lily4046.github.io/ham-radio-club-web/',  // 站点完整地址（回调）
-    proxyUrl: '',                                                   // 腾讯云函数地址（去掉 /exchange，末尾不加 /）
+    proxyUrl: 'https://1493061864-6jpy3x99lf.ap-guangzhou.tencentscf.com',  // 腾讯云函数地址（去掉 /exchange，末尾不加 /）
 
     // 数据文件在仓库中的相对路径（一般无需修改）
     files: {
