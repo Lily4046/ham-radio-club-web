@@ -71,7 +71,7 @@
         '<div class="toolbar-right">' +
           '<input type="search" id="searchInput" class="search" placeholder="搜索…">' +
           '<button class="btn btn-ghost" id="btnRefresh">↻ 刷新</button>' +
-          '<button class="btn btn-ghost" id="btnHistory">🕘 变更记录</button>' +
+          (HAM.Auth.isAdmin() ? '<button class="btn btn-ghost" id="btnHistory">🕘 变更记录</button>' : '') +
           '<button class="btn btn-ghost" id="btnExport">⬇ 导出</button>' +
           (isGuest ? '' : '<button class="btn btn-primary" id="btnAdd">＋ 新增</button>') +
         '</div>' +
@@ -175,7 +175,8 @@
     document.getElementById('btnRefresh').addEventListener('click', function () { refreshCurrent(); });
     var addBtn = document.getElementById('btnAdd');
     if (addBtn) addBtn.addEventListener('click', function () { showForm(ck, null); });
-    document.getElementById('btnHistory').addEventListener('click', function () { showHistory(ck); });
+    var historyBtn = document.getElementById('btnHistory');
+    if (historyBtn) historyBtn.addEventListener('click', function () { showHistory(ck); });
     document.getElementById('btnExport').addEventListener('click', function () { exportData(ck); });
   }
 

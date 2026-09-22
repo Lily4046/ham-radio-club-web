@@ -21,6 +21,9 @@
     // 默认分支（绝大多数新仓库是 main，老仓库可能是 master）
     branch: 'main',
 
+    // 管理员 GitHub 用户名：只有管理员能看到「变更记录」按钮
+    adminLogin: 'Lily4046',
+
     // ---- OAuth 登录模式（成员点「使用 GitHub 账号登录」，不用输入令牌）----
     // 三个值都填好才会显示 OAuth 按钮。proxyUrl 是腾讯云函数地址，见 tencent-scf/README.md。
     clientId: 'Ov23liNW6OynAyeVvehv',                                // GitHub OAuth App 的 Client ID

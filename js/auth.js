@@ -44,6 +44,13 @@
     return state.mode === 'guest';
   }
 
+  // 是否管理员（能看「变更记录」等管理功能）
+  function isAdmin() {
+    var cfg = HAM.CONFIG.get();
+    var u = getUser();
+    return !!(u && cfg.adminLogin && u.login === cfg.adminLogin);
+  }
+
   /* ---------- PAT 登录 ---------- */
   function loginWithToken(token) {
     return HAM.GitHub.getUser(token).then(function (user) {
@@ -144,6 +151,7 @@
     getUser: getUser,
     isAuthed: isAuthed,
     isGuest: isGuest,
+    isAdmin: isAdmin,
     loginWithToken: loginWithToken,
     loginAsGuest: loginAsGuest,
     startOAuth: startOAuth,
