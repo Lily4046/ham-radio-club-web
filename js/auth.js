@@ -37,7 +37,7 @@
   }
 
   function isAuthed() {
-    return !!state.token;
+    return !!state.token || state.mode === 'guest';
   }
 
   function isGuest() {
@@ -132,13 +132,9 @@
     sessionStorage.removeItem('ham.oauth.state');
   }
 
-  // 游客（只读）登录：直接用 config.js 里配置的 guestToken，不校验 /user
+  // 游客（只读）登录：读取走腾讯云函数代理（令牌在云函数环境变量里），前端不存令牌
   function loginAsGuest() {
-    var cfg = HAM.CONFIG.get();
-    if (!cfg.guestToken) {
-      return Promise.reject(new Error('游客模式未配置。'));
-    }
-    state = { mode: 'guest', token: cfg.guestToken, user: { login: '游客', name: '游客', avatar_url: '' } };
+    state = { mode: 'guest', token: null, user: { login: '游客', name: '游客', avatar_url: '' } };
     save();
     return Promise.resolve(state.user);
   }

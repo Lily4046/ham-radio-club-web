@@ -27,9 +27,8 @@
     redirectUri: 'https://lily4046.github.io/ham-radio-club-web/',  // 站点完整地址（回调）
     proxyUrl: 'https://1493061864-6jpy3x99lf.ap-guangzhou.tencentscf.com',  // 腾讯云函数地址（去掉 /exchange，末尾不加 /）
 
-    // 游客（只读）登录令牌：fine-grained token，Contents 设为「Read-only」
-    // 填了之后登录页会出现「游客登录」按钮；留空则隐藏该按钮
-    guestToken: '',
+    // 游客（只读）登录：读取走腾讯云函数代理（只读令牌存在云函数环境变量 GITHUB_READ_TOKEN 里）
+    // 配置了 proxyUrl 即显示「游客登录」按钮；无需在前端放令牌。
 
     // 数据文件在仓库中的相对路径（一般无需修改）
     files: {

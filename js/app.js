@@ -329,10 +329,10 @@
       if (oauthBtn) oauthBtn.classList.add('hidden');
       if (divider) divider.classList.add('hidden');
     }
-    // 游客登录：配置了 guestToken 才显示
+    // 游客登录：配置了 proxyUrl（腾讯云函数）才显示，读取走云函数只读代理
     var guestBtn = document.getElementById('btnLoginGuest');
     if (guestBtn) {
-      if (cfg.guestToken) guestBtn.classList.remove('hidden');
+      if (cfg.proxyUrl) guestBtn.classList.remove('hidden');
       else guestBtn.classList.add('hidden');
     }
   }

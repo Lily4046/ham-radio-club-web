@@ -78,6 +78,9 @@
 
   /* ---------- 高层 API ---------- */
   function readFile(path) {
+    if (HAM.Auth.isGuest()) {
+      return readFileViaProxy(path);
+    }
     var cfg = HAM.CONFIG.get();
     // 加一个随时间变化的缓存穿透参数，避免 GitHub CDN 在刚写入后返回旧内容
     return request('GET', '/repos/' + encodeURIComponent(cfg.owner) + '/' + encodeURIComponent(cfg.repo) +
@@ -100,6 +103,28 @@
       });
   }
 
+  // 游客只读：通过腾讯云函数代理读取数据文件（令牌存在云函数环境变量里）
+  function readFileViaProxy(path) {
+    var cfg = HAM.CONFIG.get();
+    return fetch(cfg.proxyUrl + '/read', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path: path, owner: cfg.owner, repo: cfg.repo, branch: cfg.branch })
+    }).then(function (res) {
+      return res.json().then(function (data) {
+        if (!res.ok) {
+          var err = new Error((data && (data.message || data.error)) || ('HTTP ' + res.status));
+          err.status = res.status;
+          throw err;
+        }
+        if (data.exists) {
+          return { sha: data.sha, data: data.data, exists: true, size: 0 };
+        }
+        return { sha: null, data: null, exists: false };
+      });
+    });
+  }
+
   function writeFile(path, data, sha, message) {
     var cfg = HAM.CONFIG.get();
     var body = {
@@ -118,9 +143,31 @@
   }
 
   function listCommits(path) {
+    if (HAM.Auth.isGuest()) {
+      return listCommitsViaProxy(path);
+    }
     var cfg = HAM.CONFIG.get();
     return request('GET', '/repos/' + encodeURIComponent(cfg.owner) + '/' + encodeURIComponent(cfg.repo) +
       '/commits?path=' + path + '&sha=' + encodeURIComponent(cfg.branch) + '&per_page=50');
+  }
+
+  // 游客只读：通过腾讯云函数代理读取提交历史
+  function listCommitsViaProxy(path) {
+    var cfg = HAM.CONFIG.get();
+    return fetch(cfg.proxyUrl + '/commits', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path: path, owner: cfg.owner, repo: cfg.repo, branch: cfg.branch })
+    }).then(function (res) {
+      return res.json().then(function (data) {
+        if (!res.ok) {
+          var err = new Error((data && (data.message || data.error)) || ('HTTP ' + res.status));
+          err.status = res.status;
+          throw err;
+        }
+        return data;
+      });
+    });
   }
 
   function getUser(token) {
