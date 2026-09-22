@@ -278,9 +278,13 @@ body {
   max-width: 620px;
   max-height: 86vh;
   overflow: auto;
+  overscroll-behavior: contain;
   z-index: 101;
   box-shadow: var(--shadow-lg);
 }
+
+/* 弹窗打开时锁定背景滚动，避免滚动穿透 */
+body.modal-open { overflow: hidden; }
 .modal-head {
   display: flex; align-items: center; justify-content: space-between;
   padding: 16px 20px; border-bottom: 1px solid var(--border);

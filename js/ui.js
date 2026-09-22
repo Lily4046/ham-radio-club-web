@@ -48,6 +48,7 @@
   /* ---------- modal ---------- */
   function openModal(title, bodyHtml) {
     closeModal();
+    document.body.classList.add('modal-open');
     var root = document.getElementById('modalRoot');
     root.innerHTML =
       '<div class="modal-backdrop" data-close="modal"></div>' +
@@ -67,6 +68,7 @@
   function closeModal() {
     var root = document.getElementById('modalRoot');
     if (root) root.innerHTML = '';
+    document.body.classList.remove('modal-open');
   }
 
   function confirmDialog(message) {
