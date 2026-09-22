@@ -125,6 +125,16 @@
 
   /* ---------- 登录表单绑定 ---------- */
   function bindLogin() {
+    // 点击「使用令牌登录」展开令牌输入框
+    document.getElementById('btnTokenToggle').addEventListener('click', function () {
+      var toggle = document.getElementById('btnTokenToggle');
+      var form = document.getElementById('tokenForm');
+      if (toggle) toggle.classList.add('hidden');
+      if (form) form.classList.remove('hidden');
+      var input = document.getElementById('loginToken');
+      if (input) input.focus();
+    });
+
     document.getElementById('btnLoginToken').addEventListener('click', function () {
       var token = document.getElementById('loginToken').value.trim();
       var err = document.getElementById('loginError');
@@ -139,7 +149,7 @@
         enterApp();
       }).catch(function (e) {
         this.disabled = false;
-        this.textContent = '使用令牌登录';
+        this.textContent = '登录';
         showLoginError('登录失败：' + e.message);
       }.bind(this));
     }.bind(document.getElementById('btnLoginToken')));

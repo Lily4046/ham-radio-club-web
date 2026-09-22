@@ -41,13 +41,16 @@
 
       <div class="divider" id="loginDivider"><span>或</span></div>
 
-      <!-- 2. 令牌登录 -->
-      <div class="form-field">
-        <label>GitHub 个人访问令牌（PAT）</label>
-        <input type="password" id="loginToken" placeholder="ghp_..." autocomplete="off">
-        <small>需具备 <code>repo</code> 权限；仅保存在本机浏览器，不会上传到第三方。</small>
+      <!-- 2. 令牌登录（点击展开输入框） -->
+      <button id="btnTokenToggle" class="btn btn-block" type="button">使用令牌登录</button>
+      <div id="tokenForm" class="hidden">
+        <div class="form-field">
+          <label>GitHub 个人访问令牌（PAT）</label>
+          <input type="password" id="loginToken" placeholder="ghp_..." autocomplete="off">
+          <small>需具备 <code>repo</code> 权限；仅保存在本机浏览器，不会上传到第三方。</small>
+        </div>
+        <button id="btnLoginToken" class="btn btn-primary btn-block">登录</button>
       </div>
-      <button id="btnLoginToken" class="btn btn-block">使用令牌登录</button>
 
       <!-- 3. 游客登录 -->
       <button id="btnLoginGuest" class="btn btn-block btn-guest hidden">👀 游客登录（只读浏览）</button>
@@ -70,6 +73,6 @@
   <script src="js/store.js?v=11"></script>
   <script src="js/ui.js?v=11"></script>
   <script src="js/views.js?v=11"></script>
-  <script src="js/app.js?v=11"></script>
+  <script src="js/app.js?v=12"></script>
 </body>
 </html>
