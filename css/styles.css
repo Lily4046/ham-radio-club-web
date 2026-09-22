@@ -292,7 +292,17 @@ body {
   cursor: pointer; color: var(--muted);
 }
 .modal-body { padding: 20px; }
-.modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+  position: sticky;
+  bottom: 0;
+  background: #fff;
+  padding: 12px 0 4px;
+  border-top: 1px solid var(--border);
+}
 .btn-row { display: flex; gap: 8px; }
 
 /* ---------- toast ---------- */

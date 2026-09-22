@@ -25,7 +25,7 @@
     { key: 'band', label: '波段', type: 'select', options: ['160m', '80m', '40m', '30m', '20m', '17m', '15m', '12m', '10m', '6m', '2m', '70cm', '其他'], required: false },
     { key: 'mode', label: '模式', type: 'select', options: ['SSB', 'CW', 'FT8', 'FT4', 'RTTY', 'AM', 'FM', '其他'], required: false },
     { key: 'date', label: '通联日期', type: 'date', required: true },
-    { key: 'timeUtc', label: '时间 (UTC)', type: 'text', required: false },
+    { key: 'timeUtc', label: '时间 (UTC)', type: 'time', required: false },
     { key: 'rst', label: '信号报告', type: 'text', required: false },
     { key: 'cardStatus', label: '卡片状态', type: 'select', options: ['未收到', '已收到', '已寄出', '双向确认'], required: false, default: '未收到' },
     { key: 'replied', label: '是否回信', type: 'select', options: ['已回信', '未回信'], required: false, default: '未回信' },

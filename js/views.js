@@ -321,8 +321,9 @@
         return '<div class="form-field">' + label +
           '<input type="number" data-key="' + HAM.UI.escapeHtml(f.key) + '" value="' + HAM.UI.escapeHtml(v) + '"></div>';
       }
+      var inputType = (f.type === 'date' || f.type === 'time') ? f.type : 'text';
       return '<div class="form-field">' + label +
-        '<input type="' + (f.type === 'date' ? 'date' : 'text') + '" data-key="' + HAM.UI.escapeHtml(f.key) + '" value="' + HAM.UI.escapeHtml(v) + '"></div>';
+        '<input type="' + inputType + '" data-key="' + HAM.UI.escapeHtml(f.key) + '" value="' + HAM.UI.escapeHtml(v) + '"></div>';
     }).join('');
 
     var modal = HAM.UI.openModal((isEdit ? '编辑' : '新增') + ' · ' + model.title, '' +
