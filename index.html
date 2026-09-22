@@ -36,15 +36,20 @@
       <h1>登录系统</h1>
       <p class="muted">数据存储在私有 GitHub 仓库中，需先完成认证。</p>
 
+      <!-- 1. GitHub 账号登录 -->
+      <button id="btnLoginOAuth" class="btn btn-primary btn-block">使用 GitHub 账号登录</button>
+
+      <div class="divider" id="loginDivider"><span>或</span></div>
+
+      <!-- 2. 令牌登录 -->
       <div class="form-field">
         <label>GitHub 个人访问令牌（PAT）</label>
         <input type="password" id="loginToken" placeholder="ghp_..." autocomplete="off">
         <small>需具备 <code>repo</code> 权限；仅保存在本机浏览器，不会上传到第三方。</small>
       </div>
-      <button id="btnLoginToken" class="btn btn-primary btn-block">使用令牌登录</button>
+      <button id="btnLoginToken" class="btn btn-block">使用令牌登录</button>
 
-      <div class="divider" id="loginDivider"><span>或</span></div>
-      <button id="btnLoginOAuth" class="btn btn-block">使用 GitHub 账号登录</button>
+      <!-- 3. 游客登录 -->
       <button id="btnLoginGuest" class="btn btn-block btn-guest hidden">👀 游客登录（只读浏览）</button>
 
       <p id="loginError" class="error hidden"></p>
