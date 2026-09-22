@@ -82,8 +82,8 @@
     var u = HAM.Auth.getUser();
     var badge = document.getElementById('userBadge');
     if (u) {
-      badge.innerHTML = '<img src="' + HAM.UI.escapeHtml(u.avatar_url) + '" alt="">' +
-        '<span>' + HAM.UI.escapeHtml(u.login) + '</span>';
+      var avatar = u.avatar_url ? '<img src="' + HAM.UI.escapeHtml(u.avatar_url) + '" alt="">' : '';
+      badge.innerHTML = avatar + '<span>' + HAM.UI.escapeHtml(u.login) + '</span>';
       badge.title = u.name || u.login;
     } else {
       badge.textContent = '';
@@ -150,6 +150,16 @@
       } catch (e) {
         showLoginError(e.message);
       }
+    });
+
+    document.getElementById('btnLoginGuest').addEventListener('click', function () {
+      var err = document.getElementById('loginError');
+      err.classList.add('hidden');
+      HAM.Auth.loginAsGuest().then(function () {
+        enterApp();
+      }).catch(function (e) {
+        showLoginError('游客登录失败：' + e.message);
+      });
     });
 
     // 回车登录
@@ -318,6 +328,12 @@
       var divider = document.getElementById('loginDivider');
       if (oauthBtn) oauthBtn.classList.add('hidden');
       if (divider) divider.classList.add('hidden');
+    }
+    // 游客登录：配置了 guestToken 才显示
+    var guestBtn = document.getElementById('btnLoginGuest');
+    if (guestBtn) {
+      if (cfg.guestToken) guestBtn.classList.remove('hidden');
+      else guestBtn.classList.add('hidden');
     }
   }
 })();

@@ -62,6 +62,7 @@
     filters = {};
     sortState = { key: null, dir: 1 };
     var model = HAM.Models.MODELS[ck];
+    var isGuest = HAM.Auth.isGuest();
 
     var container = document.getElementById('viewContainer');
     container.innerHTML =
@@ -72,9 +73,10 @@
           '<button class="btn btn-ghost" id="btnRefresh">↻ 刷新</button>' +
           '<button class="btn btn-ghost" id="btnHistory">🕘 变更记录</button>' +
           '<button class="btn btn-ghost" id="btnExport">⬇ 导出</button>' +
-          '<button class="btn btn-primary" id="btnAdd">＋ 新增</button>' +
+          (isGuest ? '' : '<button class="btn btn-primary" id="btnAdd">＋ 新增</button>') +
         '</div>' +
       '</div>' +
+      (isGuest ? '<div class="guest-banner">👀 游客只读模式：仅可查看，无法新增 / 编辑 / 删除。</div>' : '') +
       '<div class="filter-bar" id="filterBar"></div>' +
       '<div class="meta-line" id="metaLine"></div>' +
       '<div class="table-wrap">' +
@@ -158,8 +160,10 @@
       cells +
       '<td data-label="更新">' + meta + '</td>' +
       '<td class="actions-col">' +
-        '<button class="btn btn-sm" data-action="edit" data-id="' + HAM.UI.escapeHtml(it.id) + '">编辑</button> ' +
-        '<button class="btn btn-sm btn-danger" data-action="del" data-id="' + HAM.UI.escapeHtml(it.id) + '">删除</button>' +
+        (HAM.Auth.isGuest()
+          ? '<span class="muted">只读</span>'
+          : '<button class="btn btn-sm" data-action="edit" data-id="' + HAM.UI.escapeHtml(it.id) + '">编辑</button> ' +
+            '<button class="btn btn-sm btn-danger" data-action="del" data-id="' + HAM.UI.escapeHtml(it.id) + '">删除</button>') +
       '</td>' +
       '</tr>';
   }
@@ -169,7 +173,8 @@
     search.addEventListener('input', HAM.UI.debounce(renderRows, 200));
 
     document.getElementById('btnRefresh').addEventListener('click', function () { refreshCurrent(); });
-    document.getElementById('btnAdd').addEventListener('click', function () { showForm(ck, null); });
+    var addBtn = document.getElementById('btnAdd');
+    if (addBtn) addBtn.addEventListener('click', function () { showForm(ck, null); });
     document.getElementById('btnHistory').addEventListener('click', function () { showHistory(ck); });
     document.getElementById('btnExport').addEventListener('click', function () { exportData(ck); });
   }

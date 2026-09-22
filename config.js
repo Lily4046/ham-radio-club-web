@@ -27,6 +27,10 @@
     redirectUri: 'https://lily4046.github.io/ham-radio-club-web/',  // 站点完整地址（回调）
     proxyUrl: 'https://1493061864-6jpy3x99lf.ap-guangzhou.tencentscf.com',  // 腾讯云函数地址（去掉 /exchange，末尾不加 /）
 
+    // 游客（只读）登录令牌：fine-grained token，Contents 设为「Read-only」
+    // 填了之后登录页会出现「游客登录」按钮；留空则隐藏该按钮
+    guestToken: '',
+
     // 数据文件在仓库中的相对路径（一般无需修改）
     files: {
       lab: 'data/lab-items.json',

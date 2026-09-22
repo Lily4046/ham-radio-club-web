@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>业余无线电社团协作管理系统</title>
   <link rel="icon" href="logo.png" type="image/png">
-  <link rel="stylesheet" href="css/styles.css?v=3">
+  <link rel="stylesheet" href="css/styles.css?v=5">
 </head>
 <body>
 
@@ -45,6 +45,7 @@
 
       <div class="divider" id="loginDivider"><span>或</span></div>
       <button id="btnLoginOAuth" class="btn btn-block">使用 GitHub 账号登录</button>
+      <button id="btnLoginGuest" class="btn btn-block btn-guest hidden">👀 游客登录（只读浏览）</button>
 
       <p id="loginError" class="error hidden"></p>
       <div id="oauthLoading" class="oauth-loading hidden">
@@ -57,13 +58,13 @@
   <div id="toastRoot"></div>
 
   <!-- 脚本按顺序加载（依赖关系：config → auth → github → models → store → ui → views → app） -->
-  <script src="config.js?v=2"></script>
-  <script src="js/auth.js?v=4"></script>
-  <script src="js/github.js?v=2"></script>
-  <script src="js/models.js?v=3"></script>
-  <script src="js/store.js?v=2"></script>
-  <script src="js/ui.js?v=2"></script>
-  <script src="js/views.js?v=3"></script>
-  <script src="js/app.js?v=2"></script>
+  <script src="config.js?v=5"></script>
+  <script src="js/auth.js?v=5"></script>
+  <script src="js/github.js?v=5"></script>
+  <script src="js/models.js?v=5"></script>
+  <script src="js/store.js?v=5"></script>
+  <script src="js/ui.js?v=5"></script>
+  <script src="js/views.js?v=5"></script>
+  <script src="js/app.js?v=5"></script>
 </body>
 </html>

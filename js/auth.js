@@ -40,6 +40,10 @@
     return !!state.token;
   }
 
+  function isGuest() {
+    return state.mode === 'guest';
+  }
+
   /* ---------- PAT 登录 ---------- */
   function loginWithToken(token) {
     return HAM.GitHub.getUser(token).then(function (user) {
@@ -128,11 +132,24 @@
     sessionStorage.removeItem('ham.oauth.state');
   }
 
+  // 游客（只读）登录：直接用 config.js 里配置的 guestToken，不校验 /user
+  function loginAsGuest() {
+    var cfg = HAM.CONFIG.get();
+    if (!cfg.guestToken) {
+      return Promise.reject(new Error('游客模式未配置。'));
+    }
+    state = { mode: 'guest', token: cfg.guestToken, user: { login: '游客', name: '游客', avatar_url: '' } };
+    save();
+    return Promise.resolve(state.user);
+  }
+
   HAM.Auth = {
     getToken: getToken,
     getUser: getUser,
     isAuthed: isAuthed,
+    isGuest: isGuest,
     loginWithToken: loginWithToken,
+    loginAsGuest: loginAsGuest,
     startOAuth: startOAuth,
     handleOAuthCallback: handleOAuthCallback,
     logout: logout
