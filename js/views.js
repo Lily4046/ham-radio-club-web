@@ -60,9 +60,10 @@
   function renderCollection(ck) {
     currentCk = ck;
     filters = {};
-    sortState = { key: null, dir: 1 };
     var model = HAM.Models.MODELS[ck];
     var isGuest = HAM.Auth.isGuest();
+    // 默认排序：模型配置了 defaultSort 就用它，否则不排序
+    sortState = (model.defaultSort) ? { key: model.defaultSort.key, dir: model.defaultSort.dir } : { key: null, dir: 1 };
 
     var container = document.getElementById('viewContainer');
     container.innerHTML =

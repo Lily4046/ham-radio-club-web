@@ -64,7 +64,9 @@
         positiveLabel: '已回信',
         negativeLabel: '未回信',
         rateLabel: '回信率'
-      }
+      },
+      // 默认排序：按通联日期倒序（新 → 旧）
+      defaultSort: { key: 'date', dir: -1 }
     },
     radio: { key: 'radio', title: '电台设备', icon: '📻', fields: RADIO_FIELDS }
   };
