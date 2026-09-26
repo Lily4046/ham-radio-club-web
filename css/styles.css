@@ -185,62 +185,216 @@ body {
 .btn-sm { padding: 4px 10px; font-size: 13px; }
 .btn-block { width: 100%; justify-content: center; }
 
-/* ---------- 登录 ---------- */
+/* =========================================================================
+ * 登录页 —— 《明日方舟》「直到大地变成一颗酸橙」酸橙绿主题
+ * ========================================================================= */
 .login-screen {
   position: fixed;
   inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%);
   padding: 16px;
   overflow: auto;
+  background:
+    repeating-linear-gradient(0deg, rgba(200, 242, 77, .04) 0 1px, transparent 1px 3px),
+    repeating-linear-gradient(90deg, rgba(200, 242, 77, .055) 0 1px, transparent 1px 52px),
+    repeating-linear-gradient(0deg, rgba(200, 242, 77, .055) 0 1px, transparent 1px 52px),
+    radial-gradient(130% 100% at 50% 0%, #1b2112 0%, #0b0d07 58%, #050603 100%);
 }
 .login-card {
-  background: #fff;
-  border-radius: 14px;
-  padding: 32px;
+  position: relative;
   width: 100%;
-  max-width: 400px;
-  box-shadow: var(--shadow-lg);
+  max-width: 432px;
+  color: #e8f0d8;
+  background: linear-gradient(180deg, rgba(19, 23, 13, .985) 0%, rgba(10, 12, 7, .985) 100%);
+  border: 1px solid rgba(200, 242, 77, .5);
+  clip-path: polygon(0 16px, 16px 0, calc(100% - 48px) 0, 100% 48px, 100% 100%, 44px 100%, 0 calc(100% - 44px));
+  box-shadow: 0 0 0 1px rgba(200, 242, 77, .1), 0 26px 70px rgba(0, 0, 0, .75);
 }
+
+/* 顶部 HUD 条 */
+.lc-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 18px;
+  background: repeating-linear-gradient(-45deg, rgba(200, 242, 77, .15) 0 6px, rgba(200, 242, 77, .05) 6px 12px);
+  border-bottom: 1px solid rgba(200, 242, 77, .45);
+  font-size: 11px;
+  letter-spacing: .2em;
+  color: #c8f24d;
+  text-transform: uppercase;
+}
+.lc-head-tag {
+  padding: 2px 9px;
+  background: #c8f24d;
+  color: #0d1006;
+  font-weight: 700;
+  letter-spacing: .12em;
+}
+.lc-body { padding: 26px 28px 20px; }
+
 .login-logo {
   display: block;
   width: 100%;
-  max-width: 340px;
-  margin: 0 auto 10px;
-  border-radius: 10px;
+  max-width: 300px;
+  margin: 0 auto 12px;
+  filter: drop-shadow(0 0 18px rgba(200, 242, 77, .35));
 }
-.login-card h1 { text-align: center; font-size: 20px; margin: 8px 0 4px; }
+.login-card h1 {
+  text-align: center;
+  margin: 4px 0 2px;
+  font-size: 21px;
+  letter-spacing: .22em;
+  color: #eaf7c8;
+  text-shadow: 0 0 22px rgba(200, 242, 77, .35);
+}
+.lc-sub {
+  text-align: center;
+  margin: 0 0 10px;
+  font-size: 10px;
+  letter-spacing: .3em;
+  color: rgba(200, 242, 77, .65);
+}
 .muted { color: var(--muted); }
 .small { font-size: 12px; }
+.login-card .muted { color: #8d9a72; text-align: center; font-size: 12px; }
 .login-card .form-field { margin-bottom: 14px; }
-.divider {
-  display: flex; align-items: center; gap: 10px;
-  margin: 16px 0; color: var(--muted); font-size: 12px;
-}
-.divider::before, .divider::after { content: ''; flex: 1; height: 1px; background: var(--border); }
 
-/* OAuth 登录中的加载提示 */
-.oauth-loading {
+/* 按钮：硬朗切角 + 左侧色条 + 英文副标 */
+.login-card .btn {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  width: 100%;
+  margin-top: 10px;
+  padding: 10px 16px 10px 20px;
+  border: 1px solid rgba(200, 242, 77, .5);
+  border-radius: 0;
+  background: rgba(200, 242, 77, .06);
+  color: #dcefae;
+  font-size: 14px;
+  letter-spacing: .06em;
+  clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px));
+  transition: background .15s, color .15s, box-shadow .15s, border-color .15s;
+}
+.login-card .btn::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 3px;
+  background: #c8f24d;
+  opacity: .75;
+}
+.login-card .btn::after {
+  content: attr(data-en);
+  font-size: 9.5px;
+  letter-spacing: .24em;
+  color: rgba(200, 242, 77, .6);
+}
+.login-card .btn:hover {
+  background: rgba(200, 242, 77, .14);
+  border-color: #c8f24d;
+  box-shadow: 0 0 18px rgba(200, 242, 77, .2), inset 0 0 20px rgba(200, 242, 77, .06);
+}
+.login-card .btn:disabled { opacity: .5; }
+.login-card .btn-primary {
+  background: #c8f24d;
+  border-color: #c8f24d;
+  color: #0d1006;
+  font-weight: 700;
+}
+.login-card .btn-primary::before { background: #0d1006; opacity: .85; }
+.login-card .btn-primary::after { color: rgba(13, 16, 6, .7); }
+.login-card .btn-primary:hover {
+  background: #d9ff6a;
+  border-color: #d9ff6a;
+  box-shadow: 0 0 26px rgba(200, 242, 77, .45);
+}
+.login-card .btn-guest { color: #9fb37a; }
+.login-card .btn-guest::before { background: rgba(200, 242, 77, .4); }
+
+/* 分隔线 */
+.login-card .divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 16px 0 4px;
+  color: rgba(200, 242, 77, .6);
+  font-size: 11px;
+  letter-spacing: .24em;
+}
+.login-card .divider::before,
+.login-card .divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(200, 242, 77, .5), transparent);
+}
+
+/* 输入框 */
+.login-card .form-field label {
+  font-size: 11px;
+  letter-spacing: .14em;
+  color: #c8f24d;
+}
+.login-card .form-field input {
+  width: 100%;
+  padding: 9px 12px;
+  border-radius: 0;
+  border: 1px solid rgba(200, 242, 77, .4);
+  background: rgba(0, 0, 0, .45);
+  color: #eaf7c8;
+  font-family: inherit;
+  font-size: 14px;
+}
+.login-card .form-field input:focus {
+  outline: none;
+  border-color: #c8f24d;
+  box-shadow: 0 0 14px rgba(200, 242, 77, .25);
+}
+.login-card .form-field small { color: #7d8a63; }
+.login-card .form-field small code { color: #c8f24d; }
+
+/* 错误 / 加载 */
+.login-card .error { color: #ff9d3d; }
+.login-card .oauth-loading {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
   margin-top: 14px;
-  color: var(--muted);
-  font-size: 14px;
+  color: rgba(200, 242, 77, .8);
+  font-size: 13px;
 }
-.spinner {
+.login-card .spinner {
   width: 16px;
   height: 16px;
-  border: 2px solid var(--border);
-  border-top-color: var(--primary);
+  border: 2px solid rgba(200, 242, 77, .25);
+  border-top-color: #c8f24d;
   border-radius: 50%;
   animation: spin .7s linear infinite;
   flex-shrink: 0;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+/* 底部状态条 */
+.lc-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 18px 10px;
+  border-top: 1px solid rgba(200, 242, 77, .25);
+  font-size: 10px;
+  letter-spacing: .18em;
+  color: rgba(200, 242, 77, .5);
+}
+.lc-online { color: #c8f24d; animation: ak-blink 1.6s steps(2, start) infinite; }
+@keyframes ak-blink { 50% { opacity: .25; } }
 
 /* ---------- 表单 ---------- */
 .form-field { margin-bottom: 14px; }
@@ -470,7 +624,10 @@ body.modal-open { overflow: hidden; }
   .btn-row .btn { flex: 1 1 auto; justify-content: center; }
 
   /* 登录卡片 */
-  .login-card { padding: 24px 20px; }
+  .login-card { max-width: none; }
+  .lc-body { padding: 20px 18px 16px; }
+  .login-logo { max-width: 240px; }
+  .login-card h1 { font-size: 18px; letter-spacing: .16em; }
 
   /* toast：底部弹出 */
   #toastRoot { top: auto; bottom: 16px; left: 16px; right: 16px; }
