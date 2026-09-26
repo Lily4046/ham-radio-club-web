@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>业余无线电社团协作管理系统</title>
   <link rel="icon" href="logo.png" type="image/png">
-  <link rel="stylesheet" href="css/styles.css?v=13">
+  <link rel="stylesheet" href="css/styles.css?v=8">
 </head>
 <body>
 
@@ -29,48 +29,35 @@
     </main>
   </div>
 
-  <!-- 登录遮罩 —— 《明日方舟》「直到大地变成一颗酸橙」酸橙绿主题 -->
+  <!-- 登录遮罩 -->
   <div id="loginScreen" class="login-screen">
     <div class="login-card">
-      <div class="lc-head">
-        <span>// SYSTEM ACCESS</span>
-        <span class="lc-head-tag">BY2HIT</span>
+      <img class="login-logo" src="logo.png" alt="社团 logo">
+      <h1>登录系统</h1>
+      <p class="muted">数据存储在私有 GitHub 仓库中，需先完成认证。</p>
+
+      <!-- 1. GitHub 账号登录 -->
+      <button id="btnLoginOAuth" class="btn btn-primary btn-block">使用 GitHub 账号登录</button>
+
+      <div class="divider" id="loginDivider"><span>或</span></div>
+
+      <!-- 2. 令牌登录（点击展开输入框） -->
+      <button id="btnTokenToggle" class="btn btn-block" type="button">使用令牌登录</button>
+      <div id="tokenForm" class="hidden">
+        <div class="form-field">
+          <label>GitHub 个人访问令牌（PAT）</label>
+          <input type="password" id="loginToken" placeholder="ghp_..." autocomplete="off">
+          <small>需具备 <code>repo</code> 权限；仅保存在本机浏览器，不会上传到第三方。</small>
+        </div>
+        <button id="btnLoginToken" class="btn btn-primary btn-block">登录</button>
       </div>
 
-      <div class="lc-body">
-        <img class="login-logo" src="logo.png" alt="社团 logo">
-        <h1>登录系统</h1>
-        <p class="lc-sub">AMATEUR RADIO CLUB · SINCE 1995</p>
-        <p class="muted">数据存储在私有 GitHub 仓库中，需先完成认证。</p>
+      <!-- 3. 游客登录 -->
+      <button id="btnLoginGuest" class="btn btn-block btn-guest hidden">👀 游客登录（只读浏览）</button>
 
-        <!-- 1. GitHub 账号登录 -->
-        <button id="btnLoginOAuth" class="btn btn-primary btn-block" data-en="GITHUB OAUTH">使用 GitHub 账号登录</button>
-
-        <div class="divider" id="loginDivider"><span>或</span></div>
-
-        <!-- 2. 令牌登录（点击展开输入框） -->
-        <button id="btnTokenToggle" class="btn btn-block" type="button" data-en="PERSONAL ACCESS TOKEN">使用令牌登录</button>
-        <div id="tokenForm" class="hidden">
-          <div class="form-field">
-            <label>GitHub 个人访问令牌（PAT）</label>
-            <input type="password" id="loginToken" placeholder="ghp_..." autocomplete="off">
-            <small>需具备 <code>repo</code> 权限；仅保存在本机浏览器，不会上传到第三方。</small>
-          </div>
-          <button id="btnLoginToken" class="btn btn-primary btn-block" data-en="AUTHENTICATE">登录</button>
-        </div>
-
-        <!-- 3. 游客登录 -->
-        <button id="btnLoginGuest" class="btn btn-block btn-guest hidden" data-en="GUEST · READ ONLY">👀 游客登录（只读浏览）</button>
-
-        <p id="loginError" class="error hidden"></p>
-        <div id="oauthLoading" class="oauth-loading hidden">
-          <span class="spinner"></span> 正在通过 GitHub 登录，请稍候…
-        </div>
-      </div>
-
-      <div class="lc-foot">
-        <span>© BY2HIT SINCE 1995</span>
-        <span class="lc-online">● ONLINE</span>
+      <p id="loginError" class="error hidden"></p>
+      <div id="oauthLoading" class="oauth-loading hidden">
+        <span class="spinner"></span> 正在通过 GitHub 登录，请稍候…
       </div>
     </div>
   </div>
