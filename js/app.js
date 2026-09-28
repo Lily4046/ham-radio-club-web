@@ -31,7 +31,9 @@
         enterApp();
       }).catch(function (e) {
         hideOAuthLoading();
-        showLoginError(e.message);
+        // 失败时也要清掉地址栏里的 ?code=，否则刷新只会反复重试同一个死授权码
+        if (HAM.Auth.clearOAuthQuery) HAM.Auth.clearOAuthQuery();
+        showLoginError(oauthErrorMessage(e));
       });
       return;
     }
@@ -67,6 +69,15 @@
     var el = document.getElementById('loginError');
     el.textContent = msg;
     el.classList.remove('hidden');
+  }
+
+  // 网络层失败（fetch 直接 reject）在浏览器里只显示 "Failed to fetch"，对用户没有意义
+  function oauthErrorMessage(e) {
+    var msg = (e && e.message) || '未知错误';
+    if (/Failed to fetch|NetworkError|Load failed|Network request failed|ERR_/i.test(msg)) {
+      return '连不上登录服务（请求被中断或拦截）。请检查网络后重试；也可以改用「使用令牌登录」或「游客登录」。';
+    }
+    return msg;
   }
 
   function showOAuthLoading() {

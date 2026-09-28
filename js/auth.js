@@ -90,6 +90,16 @@
   }
 
   // 处理 OAuth 回调（页面加载时若 URL 带 code 则调用）
+  // 清掉地址栏里的 ?code=&state=：成功后不必再交换，失败后也要清，
+  // 否则每次刷新都会拿同一个（已失效的）授权码重试，看起来像"一直登录不了"
+  function clearOAuthQuery() {
+    try {
+      if (window.location.search.indexOf('code=') !== -1) {
+        window.history.replaceState(null, '', window.location.pathname + window.location.hash);
+      }
+    } catch (e) { /* 忽略：清不掉也不影响功能 */ }
+  }
+
   function handleOAuthCallback() {
     var params = new URLSearchParams(window.location.search);
     var code = params.get('code');
@@ -132,7 +142,7 @@
           throw new Error(msg);
         }
         // 清理地址栏中的 code/state，避免刷新重复交换
-        window.history.replaceState(null, '', window.location.pathname + window.location.hash);
+        clearOAuthQuery();
         sessionStorage.removeItem('ham.oauth.state');
         return loginWithToken(data.access_token);
       });
@@ -161,6 +171,7 @@
     loginWithToken: loginWithToken,
     loginAsGuest: loginAsGuest,
     startOAuth: startOAuth,
+    clearOAuthQuery: clearOAuthQuery,
     handleOAuthCallback: handleOAuthCallback,
     logout: logout
   };
