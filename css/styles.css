@@ -158,9 +158,11 @@ body {
   position: sticky;
   right: 0;
   background: var(--card);
-  /* 左侧一条竖线，把「操作」列和前面的字段明确隔开 */
-  border-left: 1px solid #d5dde8;
-  box-shadow: -6px 0 8px -6px rgba(16, 24, 40, .16);
+  /* 左侧一条竖线，把「操作」列和前面的字段明确隔开。
+     注意：不能用 border-left —— 表格是 border-collapse: collapse，
+     sticky 单元格在"卡住"状态下浏览器不绘制它的 border（只有滚到底、
+     单元格回到自然位置时才画出来）。用 inset 阴影画线则始终可见。 */
+  box-shadow: inset 1px 0 0 #cdd7e3, -6px 0 8px -6px rgba(16, 24, 40, .16);
 }
 .data-table td.actions-col { z-index: 2; }
 .data-table th.actions-col { background: #f8fafc; z-index: 3; }
