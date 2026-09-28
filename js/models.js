@@ -25,8 +25,8 @@
   var REPLY_OPTIONS = ['已回信', '未回信'];
 
   var QSL_FIELDS = [
-    { key: 'callsign', label: '对方呼号', type: 'text', required: true },
-    { key: 'ourCallsign', label: '本台呼号', type: 'text', required: false },
+    { key: 'callsign', label: '呼号', type: 'text', required: true },
+    { key: 'senderName', label: '发信人姓名', type: 'text', required: false },
     { key: 'band', label: '波段', type: 'select', options: BAND_OPTIONS, required: false },
     { key: 'mode', label: '模式', type: 'select', options: MODE_OPTIONS, required: false },
     { key: 'date', label: '通联日期', type: 'date', required: true },
@@ -34,8 +34,7 @@
     { key: 'rst', label: '信号报告', type: 'text', required: false },
     { key: 'cardStatus', label: '卡片状态', type: 'select', options: CARD_STATUS_OPTIONS, required: false, default: '未收到' },
     { key: 'replied', label: '是否回信', type: 'select', options: REPLY_OPTIONS, required: false, default: '未回信' },
-    { key: 'senderName', label: '发信人', type: 'text', required: false },
-    { key: 'senderAddress', label: '来信地址', type: 'textarea', required: false },
+    { key: 'senderAddress', label: '回信地址', type: 'textarea', required: false },
     { key: 'contact', label: '联系方式', type: 'text', required: false },
     { key: 'notes', label: '备注', type: 'textarea', required: false }
   ];

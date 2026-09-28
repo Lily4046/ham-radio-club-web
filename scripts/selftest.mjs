@@ -220,6 +220,10 @@ eq('登记表只剩呼号与日期必填',
   ['callsign', 'date']);
 eq('只有呼号+日期也能通过校验',
   app.HAM.Models.validate('publicQsl', { callsign: 'JA1ABC', date: '2026-09-28' }), []);
+eq('QSL 卡表的字段与登记表完全一致',
+  app.HAM.Models.MODELS.qsl.fields.map((f) => f.key), pubFields);
+ok('QSL 卡表也不再显示「本台呼号」',
+  app.HAM.Models.MODELS.qsl.fields.every((f) => f.key !== 'ourCallsign'));
 
 console.log('\n[8] 云函数：公开登记入库校验 + 写入目标钉死');
 const scf = require(join(ROOT, 'tencent-scf/index.js'));
