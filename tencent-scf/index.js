@@ -141,6 +141,16 @@ function repoParams(body) {
   };
 }
 
+// 读取用的令牌：公开登记库是独立的私有仓库，只读令牌通常没有它的权限，
+// 这种情况改用写入令牌（它对登记库有 Contents: Read and write）来代读。
+function readTokenFor(repoName) {
+  if (process.env.PUBLIC_REPO_NAME && repoName === process.env.PUBLIC_REPO_NAME &&
+      process.env.GITHUB_SUBMIT_TOKEN) {
+    return process.env.GITHUB_SUBMIT_TOKEN;
+  }
+  return process.env.GITHUB_READ_TOKEN || '';
+}
+
 // 公开登记写入目标：**独立仓库**（和主数据库分开）。
 // 环境变量优先；前端传的坐标只在没配环境变量时兜底。
 // 真正的硬边界是 GITHUB_SUBMIT_TOKEN 的授权范围：令牌只授权这一个仓库，
@@ -174,10 +184,10 @@ async function handleRead(body) {
     return jsonResp(403, { error: 'path not allowed', message: '该数据文件未开放给只读代理。' });
   }
 
-  const token = process.env.GITHUB_READ_TOKEN || '';
+  const { owner, repo, branch } = repoParams(body);
+  const token = readTokenFor(repo);
   if (!token) return jsonResp(500, { error: 'GITHUB_READ_TOKEN 未配置', message: '请在腾讯云函数环境变量中配置 GITHUB_READ_TOKEN（只读令牌）' });
 
-  const { owner, repo, branch } = repoParams(body);
   // 注意：contents 接口的路径不要 encodeURIComponent 斜杠，否则会被当成文件名里的 %2F
   const apiPath = '/repos/' + encodeURIComponent(owner) + '/' + encodeURIComponent(repo) +
     '/contents/' + filePath + '?ref=' + encodeURIComponent(branch);
@@ -207,10 +217,10 @@ async function handleCommits(body) {
     return jsonResp(403, { error: 'path not allowed', message: '该数据文件未开放给只读代理。' });
   }
 
-  const token = process.env.GITHUB_READ_TOKEN || '';
+  const { owner, repo, branch } = repoParams(body);
+  const token = readTokenFor(repo);
   if (!token) return jsonResp(500, { error: 'GITHUB_READ_TOKEN 未配置', message: '请在腾讯云函数环境变量中配置 GITHUB_READ_TOKEN（只读令牌）' });
 
-  const { owner, repo, branch } = repoParams(body);
   const apiPath = '/repos/' + encodeURIComponent(owner) + '/' + encodeURIComponent(repo) +
     '/commits?path=' + encodeURIComponent(filePath) + '&sha=' + encodeURIComponent(branch) + '&per_page=50';
 

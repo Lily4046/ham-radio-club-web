@@ -116,6 +116,8 @@
             hint = ' 可能是：令牌缺少写权限（需 Contents: Read and write 或 repo 权限）。';
           } else if (e && e.status === 422) {
             hint = ' 可能是：branch 名称与仓库默认分支不一致。';
+          } else if (e && e.status === 400) {
+            hint = ' 可能是：这个文件其实已经存在，只是当前读取通道没有它的权限（例如只读代理的令牌没授权该仓库），所以误判成「不存在」。';
           }
           throw new Error('数据文件不存在且无法自动创建。' + hint + ' 原始错误：' + e.message);
         });

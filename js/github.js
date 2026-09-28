@@ -97,7 +97,11 @@
     // 游客本来就走代理；成员开 readViaProxy（默认开）时也走代理，
     // 因为国内直连 api.github.com 常常要好几秒，走腾讯云只要 0.2 + 0.6 秒。
     if (HAM.Auth.isGuest() || (cfg.readViaProxy && cfg.proxyUrl)) {
-      return readFileViaProxy(path, target);
+      // 例外：公开登记库是独立的私有仓库，只读代理的令牌没有它的权限，
+      // 而登录成员自己有权限（是仓库的拥有者/协作者），所以这一类直连读取。
+      if (!(target && target.isPublicRepo) || HAM.Auth.isGuest()) {
+        return readFileViaProxy(path, target);
+      }
     }
     var coords = repoCoords(target);
     // 加一个随时间变化的缓存穿透参数，避免 GitHub CDN 在刚写入后返回旧内容
@@ -175,7 +179,9 @@
   function listCommits(path, target) {
     var cfg = HAM.CONFIG.get();
     if (HAM.Auth.isGuest() || (cfg.readViaProxy && cfg.proxyUrl)) {
-      return listCommitsViaProxy(path, target);
+      if (!(target && target.isPublicRepo) || HAM.Auth.isGuest()) {
+        return listCommitsViaProxy(path, target);
+      }
     }
     var coords = repoCoords(target);
     return request('GET', '/repos/' + encodeURIComponent(coords.owner) + '/' + encodeURIComponent(coords.repo) +
