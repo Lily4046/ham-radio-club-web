@@ -29,11 +29,13 @@
 记下这个令牌值（`github_pat_...`），它只放进云函数环境变量，**不要写进前端 config.js**。
 
 ### 公开登记写入用（Fine-grained tokens）
-先单独建一个**登记仓库**（例如 `ham-radio-club-public`，建议 Public，里面只放待核对的登记；
+先单独建一个**私有登记仓库**（本社团已建好 `Lily4046/ham-radio-club-qsl`；
 不用手动建文件，云函数第一次提交会自动创建 `data/qsl-public.json`），
-然后为它生成一个 **fine-grained 令牌**：
+然后为它生成一个 **fine-grained 令牌**（点这里：GitHub → 头像 → Settings →
+Developer settings → Personal access tokens → **Fine-grained tokens** → Generate new token）：
 - Repository access：**Only select repositories → 只勾这个登记仓库**（**不要**勾主数据库仓库）
 - Permissions → Repository permissions → **Contents → `Read and write`**（这个要能写）
+- 有效期建议 1 年，生成后**只粘贴到云函数的环境变量里**，不要贴进聊天、代码或前端配置。
 
 > 安全说明：令牌只存在云函数环境变量里，且**只授权登记仓库**，函数只会往
 > `PUBLIC_QSL_PATH`（默认 `data/qsl-public.json`）这一个文件追加记录。
@@ -55,7 +57,7 @@
    - `REPO_OWNER` = `Lily4046`、`REPO_NAME` = `ham-radio-club`、`REPO_BRANCH` = `main`
      钉死代理只能读这个仓库/分支，前端传什么都会被忽略，
      避免只读令牌被拿去读同一个用户名下的其他仓库。
-   - `PUBLIC_REPO_OWNER` = `Lily4046`、`PUBLIC_REPO_NAME` = `ham-radio-club-public`、
+   - `PUBLIC_REPO_OWNER` = `Lily4046`、`PUBLIC_REPO_NAME` = `ham-radio-club-qsl`、
      `PUBLIC_REPO_BRANCH` = `main`
      钉死公开登记的写入目标仓库；配了以后前端传的仓库坐标一律忽略。
    - `PUBLIC_QSL_PATH` = `data/qsl-public.json`
@@ -84,7 +86,7 @@
 - 游客读取：`POST /read`，body `{"path":"data/lab-items.json","owner":"Lily4046","repo":"ham-radio-club"}`，应返回 `{"exists":true,"sha":"...","data":{"items":[...]}}`
 - 公开登记：`POST /submit`，body：
   ```json
-  {"record":{"callsign":"JA1ABC","date":"2026-09-28","submitter":"张三"},"hp":"","owner":"Lily4046","repo":"ham-radio-club-public"}
+  {"record":{"callsign":"JA1ABC","date":"2026-09-28","submitter":"张三"},"hp":"","owner":"Lily4046","repo":"ham-radio-club-qsl"}
   ```
   应返回 `{"ok":true,"id":"pub_xxx"}`，并在**登记仓库**里看到一条新提交
   （返回里不含任何已有数据；配了 `PUBLIC_REPO_*` 后 body 里的仓库会被忽略）。
@@ -115,6 +117,17 @@ proxyUrl: 'https://1493061864-6jpy3x99lf.ap-guangzhou.tencentscf.com',  // 末�
 - **成员核对并入账**：在「📝 QSL 登记」标签页点「📥 并入 QSL 卡」，
   记录会写进主数据库的 `data/qsl-cards.json`，并从登记库删除（按 `sourceId` 去重，点两次不会重复）。
   > 成员要能读写登记库才能完成这一步：把成员加为登记仓库的协作者，或给他们的 PAT 授权该仓库。
+
+**谁能看到什么**（登记库设为私有后）：
+
+| 角色 | 需要令牌吗 | 能看到 |
+|------|-----------|--------|
+| 无权限的人（公众） | 不需要，任何令牌都接触不到 | 只有登记表单，提交后一句回执 |
+| 成员（PAT / OAuth） | 用自己登录的令牌 | 全部四类数据，含待核对的登记 |
+| 游客（只读浏览） | 不用登录 | 默认只有前三类；想让它也看登记，把 `config.js` 的 `publicQslForGuest` 改成 `true`，并让 `GITHUB_READ_TOKEN` 也授权登记仓库 |
+
+写入侧的令牌（`GITHUB_SUBMIT_TOKEN`）只存在于云函数环境变量里：公众提交时由云函数自动带上，
+**使用者不需要输入、也拿不到任何令牌**。
 
 ---
 

@@ -182,7 +182,7 @@ console.log('\n[7] 公开登记：独立仓库隔离 + 字段映射');
 const pubTarget = app.HAM.CONFIG.repoFor('publicQsl');
 const mainTarget = app.HAM.CONFIG.repoFor('qsl');
 eq('公开登记落在独立仓库', [pubTarget.owner, pubTarget.repo, pubTarget.branch],
-  ['Lily4046', 'ham-radio-club-public', 'main']);
+  ['Lily4046', 'ham-radio-club-qsl', 'main']);
 eq('主库仍是主数据库', [mainTarget.owner, mainTarget.repo, mainTarget.branch],
   ['Lily4046', 'ham-radio-club', 'main']);
 ok('mainTarget 标记为公开仓库', mainTarget.isPublicRepo === false && pubTarget.isPublicRepo === true);
@@ -195,8 +195,9 @@ app._readImpl = async () => ({
 await app.HAM.Store.refresh('publicQsl');
 const lastRead = app.reads[app.reads.length - 1];
 eq('读取公开登记确实打到独立仓库', [lastRead.target.owner, lastRead.target.repo],
-  ['Lily4046', 'ham-radio-club-public']);
+  ['Lily4046', 'ham-radio-club-qsl']);
 eq('读取公开登记的文件路径', lastRead.path, 'data/qsl-public.json');
+eq('默认不给游客看登记库', app.HAM.CONFIG.get().publicQslForGuest, false);
 
 const pubItem = app.HAM.Store.getCached('publicQsl').items[0];
 const mapped = app.HAM.Models.toQslFromPublic(pubItem, 'lily');
@@ -220,9 +221,9 @@ eq('云函数：白名单外字段被丢弃', submit.record.evil, undefined);
 ok('云函数：自动补 id / 时间 / 来源',
   /^pub_/.test(submit.record.id) && !!submit.record.updatedAt && submit.record.source === 'public');
 
-process.env.PUBLIC_REPO_NAME = 'ham-radio-club-public';
+process.env.PUBLIC_REPO_NAME = 'ham-radio-club-qsl';
 eq('云函数：配了环境变量后，前端传主库也写不进主库',
-  scf._publicRepoParams({ repo: 'ham-radio-club' }).repo, 'ham-radio-club-public');
+  scf._publicRepoParams({ repo: 'ham-radio-club' }).repo, 'ham-radio-club-qsl');
 delete process.env.PUBLIC_REPO_NAME;
 eq('云函数：没配环境变量时用请求里的登记仓库',
   scf._publicRepoParams({ repo: 'staging' }).repo, 'staging');

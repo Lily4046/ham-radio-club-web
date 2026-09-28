@@ -483,15 +483,17 @@
   /* ---------- 公开登记 → 并入 QSL 卡 ---------- */
   function importPublicQsl() {
     var pending = HAM.Store.getCached('publicQsl');
-    var items = (pending && pending.items) || [];
-    if (!items.length) {
+    // 复制一份：并入过程中登记库会被就地清空，直接引用原数组会算错条数
+    var items = ((pending && pending.items) || []).slice();
+    var total = items.length;
+    if (!total) {
       HAM.UI.toast('公开登记库是空的，没有需要并入的记录。', 'info');
       return;
     }
     var user = HAM.Auth.getUser();
     var login = user ? user.login : '';
 
-    HAM.UI.confirmDialog('确定把公开登记库的 ' + items.length +
+    HAM.UI.confirmDialog('确定把公开登记库的 ' + total +
       ' 条记录并入「QSL 卡」，并从登记库删除吗？').then(function (ok) {
       if (!ok) return;
       HAM.UI.showLoading(true);
@@ -515,7 +517,7 @@
             HAM.UI.showLoading(false);
             renderRows();
             updateCount();
-            var extra = items.length - records.length;
+            var extra = total - records.length;
             HAM.UI.toast('已并入 ' + records.length + ' 条' +
               (extra ? '（另有 ' + extra + ' 条之前已并入，一并清理）' : ''), 'success');
           });

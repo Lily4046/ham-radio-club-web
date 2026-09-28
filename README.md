@@ -191,16 +191,20 @@ proxyUrl: 'https://xxx.workers.dev'
 
 ### 独立仓库怎么建（只做一次）
 
-1. 新建一个仓库，例如 `ham-radio-club-public`（建议 **Public**，里面只放待核对的登记）：
+本仓库已经在 `Lily4046` 下建好了私有暂存库 **`ham-radio-club-qsl`**（内含空的 `data/qsl-public.json`），
+需要改名字的话照下面三步走：
+
+1. 新建一个**私有**仓库（例如 `ham-radio-club-qsl`，别人的提交先落在这里，谁都看不到内容）：
    - 不需要手动建文件，云函数第一次收到提交时会自动创建 `data/qsl-public.json`。
 2. 在 `config.js` 里填好：
    ```js
-   publicRepo: { owner: '你的用户名', repo: 'ham-radio-club-public', branch: 'main' }
+   publicRepo: { owner: '你的用户名', repo: 'ham-radio-club-qsl', branch: 'main' }
    ```
-3. 给这个仓库单独生成一个 fine-grained 令牌（Contents: Read and write），
-   只放进云函数的 `GITHUB_SUBMIT_TOKEN`，**不要**用主数据库的令牌。
+3. 给这个仓库单独生成一个 fine-grained 令牌，只放进云函数的 `GITHUB_SUBMIT_TOKEN`，
+   **不要**用主数据库的令牌，也不要把令牌放进前端。
    这样即使写入口被滥用，能改的也只有登记库，主数据库完全不受影响。
-4. 成员要能看到/清理登记库：把自己加入这个仓库的协作者，或在云函数里配只读代理。
+4. 成员要能看到/清理登记库：把成员加为这个**私有仓库的协作者**
+   （游客默认看不到这一栏，见下面的 `publicQslForGuest`）。
 
 几个可调项：
 
@@ -208,6 +212,7 @@ proxyUrl: 'https://xxx.workers.dev'
 |------|------|------|
 | `config.js` | `publicSubmit: false` | 首页不显示登记入口 |
 | `config.js` | `guestRead: false` | 首页不显示「游客登录（只读浏览）」 |
+| `config.js` | `publicQslForGuest` | 游客是否也能看到「QSL 登记」栏（默认 `false`，登记库是私有的） |
 | `config.js` | `publicRepo` | 公开登记落在哪个仓库（和主数据库 `owner`/`repo` 分开） |
 | 云函数环境变量 | `PUBLIC_REPO_OWNER` / `PUBLIC_REPO_NAME` / `PUBLIC_REPO_BRANCH` | 钉死公开登记写入的仓库，前端传什么都会被忽略 |
 | 云函数环境变量 | `PUBLIC_QSL_PATH` | 公开登记写到哪个文件（默认 `data/qsl-public.json`，只能填一个） |

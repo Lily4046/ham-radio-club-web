@@ -9,6 +9,16 @@
   var COLLECTIONS = ['lab', 'qsl', 'radio', 'publicQsl'];
   var currentCk = 'lab';
 
+  // 游客能看到的分类：公开登记库是私有仓库，默认不对游客显示
+  function visibleCollections() {
+    var cfg = HAM.CONFIG.get();
+    var isGuest = HAM.Auth.isGuest();
+    return COLLECTIONS.filter(function (ck) {
+      if (ck === 'publicQsl' && isGuest && cfg.publicQslForGuest !== true) return false;
+      return true;
+    });
+  }
+
   /* ---------- 初始化 ---------- */
   function init() {
     var params = new URLSearchParams(window.location.search);
@@ -80,7 +90,7 @@
 
   // 登录后后台并行预加载其余模块，让第一次切换标签也秒开
   function preloadAll() {
-    COLLECTIONS.forEach(function (ck) {
+    visibleCollections().forEach(function (ck) {
       if (HAM.Store.isCached(ck)) return;
       HAM.Store.load(ck).catch(function () {
         // 静默失败：真正切换过去时若仍失败会再次尝试并提示
@@ -102,7 +112,7 @@
 
   function renderTabs() {
     var tabs = document.getElementById('tabs');
-    tabs.innerHTML = COLLECTIONS.map(function (ck) {
+    tabs.innerHTML = visibleCollections().map(function (ck) {
       var m = HAM.Models.MODELS[ck];
       return '<button class="tab" data-ck="' + ck + '">' + m.icon + ' ' + HAM.UI.escapeHtml(m.title) + '</button>';
     }).join('');

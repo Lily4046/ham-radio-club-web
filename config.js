@@ -42,14 +42,19 @@
     // 写入用的令牌只授权这一个仓库，刷数据也碰不到主数据库。
     publicSubmit: true,
 
-    // 公开登记专用仓库（请单独建一个仓库，例如 ham-radio-club-public）
-    // - 建议设为 Public：里面只放待核对的登记，本身就是要给人填的；
-    // - 云函数首次提交时会自动创建 data/qsl-public.json，不用手动建。
+    // 公开登记专用仓库（与主数据库分开的独立仓库）
+    // - 设为 Private：无权限的人只能「写」，看不到任何内容，全库也读不到这个仓库；
+    // - 该仓库需要单独一个令牌（只授权它），放进云函数的 GITHUB_SUBMIT_TOKEN；
+    // - 文件不存在时云函数首次提交会自动创建 data/qsl-public.json。
     publicRepo: {
       owner: 'Lily4046',
-      repo: 'ham-radio-club-public',
+      repo: 'ham-radio-club-qsl',
       branch: 'main'
     },
+
+    // 游客（只读浏览）是否也能看到「QSL 登记」这一栏：
+    // 登记库是私有仓库，默认不给游客看（成员登录后才有）。想开放就改成 true。
+    publicQslForGuest: false,
 
     // 数据文件在仓库中的相对路径（一般无需修改）
     files: {
