@@ -16,6 +16,35 @@
 const https = require('https');
 const { URLSearchParams } = require('url');
 
+/* ---------- 连接复用：同一实例内的多次 GitHub 请求不必重新握手 ---------- */
+const githubAgent = new https.Agent({ keepAlive: true, keepAliveMsecs: 5000, maxSockets: 4 });
+
+// 发一个 HTTPS JSON 请求。云函数冻结后连接可能被回收，遇到连接类错误就换新连接重试一次。
+function httpsJson(opts, body, attempt) {
+  const round = attempt || 0;
+  return new Promise(function (resolve, reject) {
+    const req = https.request(opts, function (res) {
+      let raw = '';
+      res.on('data', function (c) { raw += c; });
+      res.on('end', function () {
+        let data;
+        try { data = JSON.parse(raw); } catch (e) { data = { raw: raw }; }
+        resolve({ status: res.statusCode, data: data });
+      });
+    });
+    req.on('error', function (e) {
+      const retryable = e && (e.code === 'ECONNRESET' || e.code === 'EPIPE' ||
+        e.code === 'ETIMEDOUT' || e.code === 'ENOTFOUND' || e.code === 'EAI_AGAIN');
+      if (retryable && round === 0) {
+        return resolve(httpsJson(Object.assign({}, opts, { agent: false }), body, 1));
+      }
+      reject(e);
+    });
+    if (body) req.write(body);
+    req.end();
+  });
+}
+
 /* ---------- 通用：解析请求体 ---------- */
 function parseBody(event) {
   let body = event.body || {};
@@ -31,87 +60,52 @@ function parseBody(event) {
 
 /* ---------- POST 到 GitHub（OAuth 换令牌） ---------- */
 function postToGitHub(formBody) {
-  return new Promise(function (resolve, reject) {
-    const req = https.request({
-      hostname: 'github.com',
-      path: '/login/oauth/access_token',
-      method: 'POST',
-      headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'Content-Length': Buffer.byteLength(formBody)
-      }
-    }, function (res) {
-      let raw = '';
-      res.on('data', function (c) { raw += c; });
-      res.on('end', function () {
-        let data;
-        try { data = JSON.parse(raw); } catch (e) { data = { raw: raw }; }
-        resolve({ status: res.statusCode, data: data });
-      });
-    });
-    req.on('error', reject);
-    req.write(formBody);
-    req.end();
-  });
+  return httpsJson({
+    hostname: 'github.com',
+    path: '/login/oauth/access_token',
+    method: 'POST',
+    agent: githubAgent,
+    headers: {
+      'Accept': 'application/json',
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'Content-Length': Buffer.byteLength(formBody)
+    }
+  }, formBody);
 }
 
 /* ---------- GET 到 GitHub API（带只读令牌） ---------- */
 function githubGet(apiPath, token) {
-  return new Promise(function (resolve, reject) {
-    const req = https.request({
-      hostname: 'api.github.com',
-      path: apiPath,
-      method: 'GET',
-      headers: {
-        'Accept': 'application/vnd.github+json',
-        'X-GitHub-Api-Version': '2022-11-28',
-        'Authorization': 'Bearer ' + token,
-        'User-Agent': 'ham-radio-club-system'
-      }
-    }, function (res) {
-      let raw = '';
-      res.on('data', function (c) { raw += c; });
-      res.on('end', function () {
-        let data;
-        try { data = JSON.parse(raw); } catch (e) { data = { raw: raw }; }
-        resolve({ status: res.statusCode, data: data });
-      });
-    });
-    req.on('error', reject);
-    req.end();
+  return httpsJson({
+    hostname: 'api.github.com',
+    path: apiPath,
+    method: 'GET',
+    agent: githubAgent,
+    headers: {
+      'Accept': 'application/vnd.github+json',
+      'X-GitHub-Api-Version': '2022-11-28',
+      'Authorization': 'Bearer ' + token,
+      'User-Agent': 'ham-radio-club-system'
+    }
   });
 }
 
 /* ---------- PUT 到 GitHub API（写文件，带令牌） ---------- */
 function githubPut(apiPath, payload, token) {
   const body = JSON.stringify(payload);
-  return new Promise(function (resolve, reject) {
-    const req = https.request({
-      hostname: 'api.github.com',
-      path: apiPath,
-      method: 'PUT',
-      headers: {
-        'Accept': 'application/vnd.github+json',
-        'X-GitHub-Api-Version': '2022-11-28',
-        'Authorization': 'Bearer ' + token,
-        'User-Agent': 'ham-radio-club-system',
-        'Content-Type': 'application/json',
-        'Content-Length': Buffer.byteLength(body)
-      }
-    }, function (res) {
-      let raw = '';
-      res.on('data', function (c) { raw += c; });
-      res.on('end', function () {
-        let data;
-        try { data = JSON.parse(raw); } catch (e) { data = { raw: raw }; }
-        resolve({ status: res.statusCode, data: data });
-      });
-    });
-    req.on('error', reject);
-    req.write(body);
-    req.end();
-  });
+  return httpsJson({
+    hostname: 'api.github.com',
+    path: apiPath,
+    method: 'PUT',
+    agent: githubAgent,
+    headers: {
+      'Accept': 'application/vnd.github+json',
+      'X-GitHub-Api-Version': '2022-11-28',
+      'Authorization': 'Bearer ' + token,
+      'User-Agent': 'ham-radio-club-system',
+      'Content-Type': 'application/json',
+      'Content-Length': Buffer.byteLength(body)
+    }
+  }, body);
 }
 
 /* ---------- 统一响应（含 CORS 头） ---------- */
@@ -253,6 +247,10 @@ const SUBMIT_WINDOW_MS = 10 * 60 * 1000;
 const SUBMIT_MAX_PER_WINDOW = 20;
 const submitHits = new Map();
 
+// 热实例里缓存最后一次读到的登记文件（内容 + sha），用于省掉提交时的读取往返
+const FILE_CACHE_MS = 60 * 1000;
+let fileCache = null; // { key, sha, items, at }
+
 // 只保留白名单字段并补齐元信息；返回 { record } 或 { error }
 function sanitizeSubmit(record) {
   if (!record || typeof record !== 'object') return { error: '缺少登记内容。' };
@@ -327,26 +325,39 @@ async function handleSubmit(body, event) {
   const commitMessage = '公开登记 QSL：' + record.callsign + ' ' + record.date;
 
   try {
+    // 热实例缓存：上次读到的内容 + sha 留在内存里，命中时直接写，
+    // 省掉一次「读 GitHub」往返（实测约 600ms）。若期间别人写过，
+    // GitHub 会返回 409，下面会自动重新读取最新内容再追加，不会覆盖别人的数据。
+    const cacheKey = owner + '/' + repo + '/' + branch + '/' + filePath;
+    let items = null;
+    let sha = null;
+    if (fileCache && fileCache.key === cacheKey && (Date.now() - fileCache.at) < FILE_CACHE_MS) {
+      items = fileCache.items;
+      sha = fileCache.sha;
+    }
+
     // 读取 → 追加 → 写回；409（他人同时写入）就重新读取再追加，最多 4 轮
     for (let round = 0; round < 4; round++) {
-      const cur = await githubGet(apiPath + '?ref=' + encodeURIComponent(branch), token);
-      let items = [];
-      let sha = null;
+      if (items === null) {
+        const cur = await githubGet(apiPath + '?ref=' + encodeURIComponent(branch), token);
+        items = [];
+        sha = null;
 
-      if (cur.status === 200) {
-        const content = Buffer.from(String(cur.data.content || '').replace(/\s+/g, ''), 'base64').toString('utf8');
-        try {
-          const parsed = JSON.parse(content);
-          items = Array.isArray(parsed) ? parsed : (parsed.items || []);
-        } catch (e) {
-          items = [];
+        if (cur.status === 200) {
+          const content = Buffer.from(String(cur.data.content || '').replace(/\s+/g, ''), 'base64').toString('utf8');
+          try {
+            const parsed = JSON.parse(content);
+            items = Array.isArray(parsed) ? parsed : (parsed.items || []);
+          } catch (e) {
+            items = [];
+          }
+          sha = cur.data.sha;
+        } else if (cur.status !== 404) {
+          return jsonResp(cur.status, {
+            error: 'github error',
+            message: (cur.data && cur.data.message) || ('HTTP ' + cur.status)
+          });
         }
-        sha = cur.data.sha;
-      } else if (cur.status !== 404) {
-        return jsonResp(cur.status, {
-          error: 'github error',
-          message: (cur.data && cur.data.message) || ('HTTP ' + cur.status)
-        });
       }
 
       if (!Array.isArray(items)) items = [];
@@ -366,7 +377,20 @@ async function handleSubmit(body, event) {
 
       const put = await githubPut(apiPath, payload, token);
       if (put.status === 200 || put.status === 201) {
+        fileCache = {
+          key: cacheKey,
+          sha: (put.data && put.data.content && put.data.content.sha) || null,
+          items: items.concat([record]),
+          at: Date.now()
+        };
         return jsonResp(200, { ok: true, id: record.id });
+      }
+      if (put.status === 409) {
+        // 缓存（或读到的 sha）已经过期：丢掉缓存，下一轮重新读取最新内容
+        fileCache = null;
+        items = null;
+        sha = null;
+        continue;
       }
       if (put.status !== 409) {
         return jsonResp(put.status, {
@@ -400,6 +424,11 @@ exports.main_handler = async function (event) {
 
   const path = String(event.path || '/');
   const body = parseBody(event);
+
+  // 预热接口：前端打开登记页时先打一下，把冷启动时间藏进「填表」的时间里
+  if (path.indexOf('/ping') !== -1) {
+    return jsonResp(200, { ok: true, warm: true });
+  }
 
   // OAuth 换令牌
   if (path.indexOf('/exchange') !== -1 && method === 'POST') {

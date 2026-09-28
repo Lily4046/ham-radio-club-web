@@ -237,5 +237,87 @@ process.env.PUBLIC_READ_PATHS = '*';
 eq('只读代理：* 表示放开全部', scf._readAllowed('data/lab-items.json'), true);
 delete process.env.PUBLIC_READ_PATHS;
 
+console.log('\n[9] 云函数路由：预热 / 预检 / 缺令牌提示（不联网）');
+const ping = await scf.main_handler({ path: '/ping', httpMethod: 'POST', body: '{}' });
+eq('POST /ping 返回 200', ping.statusCode, 200);
+eq('/ping 回执含 warm 标记', JSON.parse(ping.body).warm, true);
+const opt = await scf.main_handler({ path: '/', httpMethod: 'OPTIONS' });
+eq('OPTIONS 预检返回 204', opt.statusCode, 204);
+delete process.env.GITHUB_SUBMIT_TOKEN;
+const noToken = await scf.main_handler({
+  path: '/submit',
+  httpMethod: 'POST',
+  body: JSON.stringify({ record: { callsign: 'JA1ABC', date: '2026-01-01', submitter: '张三' } })
+});
+eq('没配写入令牌时 /submit 返回 500', noToken.statusCode, 500);
+ok('没配写入令牌时给出中文提示',
+  String(JSON.parse(noToken.body).message || '').indexOf('GITHUB_SUBMIT_TOKEN') !== -1);
+
+console.log('\n[10] 提交提速：热实例缓存 sha，少一次 GitHub 往返');
+// 用假的 https 层顶掉真实网络，检查「第一次读+写，第二次只写」
+function fakeGithub(responder) {
+  const httpsMod = require('node:https');
+  const { EventEmitter } = require('node:events');
+  const calls = [];
+  let lastBody = null;
+  const original = httpsMod.request;
+  httpsMod.request = function (opts, cb) {
+    const req = new EventEmitter();
+    req.write = function (b) { lastBody = b; };
+    req.end = function () {
+      const out = responder(opts, calls, lastBody) || {};
+      const res = new EventEmitter();
+      res.statusCode = out.status || 200;
+      cb(res);
+      setImmediate(function () {
+        res.emit('data', JSON.stringify(out.data || {}));
+        res.emit('end');
+      });
+    };
+    calls.push({ method: opts.method, path: opts.path });
+    return req;
+  };
+  return { calls, restore: function () { httpsMod.request = original; } };
+}
+
+const fileBody = Buffer.from(JSON.stringify({ items: [{ id: 'seed' }] }), 'utf8').toString('base64');
+let conflictNext = false;
+const gh = fakeGithub(function (opts, calls, bodyText) {
+  if (opts.method === 'GET') return { status: 200, data: { content: fileBody, sha: 'sha-1' } };
+  if (conflictNext) {
+    // 模拟「别人刚好也提交了」，这一次写入冲突
+    conflictNext = false;
+    return { status: 409, data: { message: 'sha does not match' } };
+  }
+  const sent = JSON.parse(bodyText);
+  return { status: 201, data: { content: { sha: 'sha-' + sent.content.length } } };
+});
+
+process.env.GITHUB_SUBMIT_TOKEN = 'fake-token';
+const sub = (callsign) => scf.main_handler({
+  path: '/submit',
+  httpMethod: 'POST',
+  headers: { 'x-forwarded-for': '10.0.0.' + callsign.length },
+  body: JSON.stringify({ record: { callsign: callsign, date: '2026-01-02', submitter: '张三' } })
+});
+
+eq('第一次提交成功', (await sub('JA1AAA')).statusCode, 200);
+eq('第一次：读 1 次 + 写 1 次',
+  [gh.calls.filter((c) => c.method === 'GET').length, gh.calls.filter((c) => c.method === 'PUT').length], [1, 1]);
+
+const before = gh.calls.length;
+eq('第二次提交（命中缓存）也成功', (await sub('JA2BBB')).statusCode, 200);
+eq('第二次提交没有再去读 GitHub',
+  gh.calls.slice(before).filter((c) => c.method === 'GET').length, 0);
+
+const before3 = gh.calls.length;
+conflictNext = true;
+eq('第三次提交（写冲突）自动重读后成功', (await sub('JA3CCC')).statusCode, 200);
+eq('冲突后确实重新读了一次最新内容',
+  gh.calls.slice(before3).filter((c) => c.method === 'GET').length, 1);
+
+gh.restore();
+delete process.env.GITHUB_SUBMIT_TOKEN;
+
 console.log('\n' + (failed === 0 ? '✅ 全部通过' : '❌ 有失败项') + '：' + passed + ' 通过 / ' + failed + ' 失败\n');
 process.exit(failed === 0 ? 0 : 1);

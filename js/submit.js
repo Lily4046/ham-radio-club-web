@@ -59,7 +59,8 @@
 
     root.innerHTML =
       '<p class="muted small">无需登录即可登记一张 QSL 卡。' +
-        '提交后由管理员核对并入账，这里<b>不会显示任何已有记录</b>。</p>' +
+        '提交后由管理员核对并入账，这里<b>不会显示任何已有记录</b>。' +
+        '提交约需几秒，请耐心等待、不要重复点击。</p>' +
       '<form id="publicQslForm" onsubmit="return false;" autocomplete="off">' +
         HAM.UI.fieldsHtml(model, { date: todayLocal() }) +
         // 蜜罐：正常用户看不到也不会填，填了的一律当成机器人
@@ -76,8 +77,13 @@
     var btn = root.querySelector('#pubSave');
     root.querySelector('#pubBack').addEventListener('click', backToLogin);
 
+    // 打开页面就顺手把云函数叫醒，冷启动（约 1–3 秒）藏在填表时间里
+    try { if (HAM.GitHub.pingProxy) HAM.GitHub.pingProxy(); } catch (e) { /* 预热失败不影响提交 */ }
+
+    var submitting = false;
     form.addEventListener('submit', function (ev) {
       ev.preventDefault();
+      if (submitting) return;   // 按回车可能重复触发，这里挡住
       var errEl = form.querySelector('#pubError');
       errEl.classList.add('hidden');
 
@@ -88,13 +94,22 @@
         return;
       }
 
+      submitting = true;
       btn.disabled = true;
       btn.textContent = '提交中…';
+      var startedAt = Date.now();
+      var tick = setInterval(function () {
+        btn.textContent = '提交中… 已等待 ' + Math.round((Date.now() - startedAt) / 1000) + ' 秒';
+      }, 1000);
+
       HAM.GitHub.submitPublicQsl(record, form.querySelector('#pubHp').value)
         .then(function (r) {
+          clearInterval(tick);
           renderDone(r && r.id);
         })
         .catch(function (e) {
+          clearInterval(tick);
+          submitting = false;
           btn.disabled = false;
           btn.textContent = '提交登记';
           // 云函数还没更新到 /submit 时是 404，给一句能看懂的话

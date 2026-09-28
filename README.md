@@ -220,6 +220,9 @@ proxyUrl: 'https://xxx.workers.dev'
 
 > 云函数的部署与这些环境变量见 [tencent-scf/README.md](tencent-scf/README.md)。
 > 注意：公开登记写入用的是云函数里的令牌，前端和提交者都接触不到任何令牌。
+>
+> 提交要跨太平洋访问 GitHub，正常需要几秒；已做的提速（少一次往返、连接复用、打开页面预热云函数）
+> 和还能在腾讯云侧调的开关，见 [tencent-scf/README.md](tencent-scf/README.md) 的「六、提交速度慢怎么办」。
 
 ---
 

@@ -205,6 +205,17 @@
 
   // 公开登记：把一条记录交给云函数代写。
   // 提交者没有 GitHub 令牌，也拿不到任何已有数据，函数只回执写入结果。
+  // 预热：打开登记页时先打一下，把云函数冷启动时间藏进「填表」的时间里
+  function pingProxy() {
+    var cfg = HAM.CONFIG.get();
+    if (!cfg.proxyUrl) return Promise.resolve(false);
+    return fetch(cfg.proxyUrl + '/ping', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{}'
+    }).then(function (r) { return r.ok; }).catch(function () { return false; });
+  }
+
   function submitPublicQsl(record, honeypot) {
     var cfg = HAM.CONFIG.get();
     if (!cfg.proxyUrl) {
@@ -263,6 +274,7 @@
     writeFile: writeFile,
     listCommits: listCommits,
     getUser: getUser,
+    pingProxy: pingProxy,
     submitPublicQsl: submitPublicQsl,
     getRepo: getRepo,
     listMyRepos: listMyRepos,
