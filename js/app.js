@@ -141,7 +141,12 @@
   function switchTab(ck) {
     currentCk = ck;
     document.querySelectorAll('.tab').forEach(function (t) {
-      t.classList.toggle('active', t.getAttribute('data-ck') === ck);
+      var active = t.getAttribute('data-ck') === ck;
+      t.classList.toggle('active', active);
+      // 手机上标签栏是横向滑动的，把当前标签滚进可视区
+      if (active && t.scrollIntoView) {
+        try { t.scrollIntoView({ inline: 'center', block: 'nearest' }); } catch (e) { /* 老浏览器忽略 */ }
+      }
     });
     // 已缓存的集合直接渲染，秒切换；未缓存的才走网络请求
     if (HAM.Store.isCached(ck)) {

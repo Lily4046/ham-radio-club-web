@@ -195,6 +195,8 @@ body {
   background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%);
   padding: 16px;
   overflow: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
 }
 .login-card {
   background: #fff;
@@ -202,6 +204,7 @@ body {
   padding: 32px;
   width: 100%;
   max-width: 400px;
+  margin: auto;
   box-shadow: var(--shadow-lg);
 }
 .login-logo {
@@ -372,18 +375,28 @@ body.modal-open { overflow: hidden; }
   .user-badge span { display: none; }
   .user-badge img { width: 26px; height: 26px; }
 
-  /* 标签页：三等分 */
-  .tabs { padding: 0 8px; overflow-x: auto; }
+  /* 标签页：文字不压缩，放不下就横向滑（「QSL 登记」是第 4 个） */
+  .tabs {
+    padding: 0 8px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  .tabs::-webkit-scrollbar { display: none; }
   .tab {
-    flex: 1 1 0;
-    padding: 12px 6px;
-    font-size: 14px;
+    flex: 1 0 auto;
+    padding: 12px 12px;
+    font-size: 13px;
     white-space: nowrap;
     text-align: center;
   }
 
   /* 主区 */
-  .main { padding: 0 12px; margin: 14px auto; }
+  .main {
+    padding: 0 12px;
+    padding-bottom: calc(24px + env(safe-area-inset-bottom));
+    margin: 14px auto;
+  }
 
   /* 工具栏 */
   .toolbar { flex-direction: column; align-items: stretch; gap: 10px; }
@@ -469,8 +482,40 @@ body.modal-open { overflow: hidden; }
   .btn-row { flex-wrap: wrap; }
   .btn-row .btn { flex: 1 1 auto; justify-content: center; }
 
-  /* 登录卡片 */
-  .login-card { padding: 24px 20px; }
+  /* 登录 / 公开登记页：手机上进正常文档流，键盘弹出时不会被固定定位卡住视线 */
+  .login-screen {
+    position: static;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    min-height: 100vh;
+    min-height: 100dvh;
+    padding: 12px;
+    padding-bottom: calc(12px + env(safe-area-inset-bottom));
+    overflow: visible;
+  }
+  .login-card { padding: 24px 20px; margin: auto; }
+
+  /* 登记页：logo 和标题收小一点，把竖向空间让给表单 */
+  #submitScreen .login-logo { max-width: 180px; margin-bottom: 4px; }
+  #submitScreen .login-card h1 { font-size: 18px; margin: 4px 0 2px; }
+
+  /* 输入框字号至少 16px：否则 iPhone 一聚焦就整页放大 */
+  .form-field input,
+  .form-field select,
+  .form-field textarea { font-size: 16px; padding: 10px 12px; }
+
+  /* 登记表很长，提交按钮吸在底部，不用滚到底才敢点 */
+  #publicQslForm #pubSave {
+    position: sticky;
+    bottom: 8px;
+    z-index: 2;
+    margin-top: 16px;
+    /* 白色光晕垫底，避免吸底时压住上面的输入框 */
+    box-shadow: 0 0 0 10px #fff, 0 8px 20px rgba(16, 24, 40, .18);
+  }
+  #publicQslForm { padding-bottom: 6px; }
 
   /* toast：底部弹出 */
   #toastRoot { top: auto; bottom: 16px; left: 16px; right: 16px; }
