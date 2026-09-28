@@ -233,15 +233,23 @@ async function handleCommits(body) {
  * ========================================================================= */
 const SUBMIT_FIELD_MAX = {
   callsign: 60,
+  senderName: 80,
   ourCallsign: 60,
   band: 20,
   mode: 20,
   date: 20,
   timeUtc: 10,
   rst: 40,
+  cardStatus: 20,
+  replied: 20,
+  senderAddress: 200,
+  contact: 120,
   submitter: 80,
   notes: 1000
 };
+// 与前端 js/models.js 保持一致：只接受这几个值，防止被塞入乱七八糟的状态
+const CARD_STATUS_OPTIONS = ['未收到', '已收到', '已寄出', '双向确认'];
+const REPLY_OPTIONS = ['已回信', '未回信'];
 const PUBLIC_QSL_MAX_ITEMS = 5000;
 const SUBMIT_WINDOW_MS = 10 * 60 * 1000;
 const SUBMIT_MAX_PER_WINDOW = 20;
@@ -272,6 +280,10 @@ function sanitizeSubmit(record) {
 
   out.id = 'pub_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8);
   out.submittedAt = new Date().toISOString();
+  // 卡片状态 / 回信情况由登记人（QSL 卡原主人）填写，只接受白名单里的值
+  if (CARD_STATUS_OPTIONS.indexOf(out.cardStatus) === -1) out.cardStatus = '未收到';
+  if (REPLY_OPTIONS.indexOf(out.replied) === -1) out.replied = '未回信';
+  if (!out.senderName) out.senderName = out.submitter;
   out.updatedAt = out.submittedAt;
   out.updatedBy = out.submitter;
   out.source = 'public';

@@ -221,6 +221,23 @@ eq('云函数：白名单外字段被丢弃', submit.record.evil, undefined);
 ok('云函数：自动补 id / 时间 / 来源',
   /^pub_/.test(submit.record.id) && !!submit.record.updatedAt && submit.record.source === 'public');
 
+const full = scf._sanitizeSubmit({
+  callsign: 'JA1ABC', date: '2026-01-05', submitter: '田中',
+  senderName: '田中太郎', senderAddress: '东京都xx区', contact: 'ja1abc@example.com',
+  cardStatus: '已寄出', replied: '已回信'
+});
+eq('云函数：保留登记人填的卡片状态与回信情况',
+  [full.record.cardStatus, full.record.replied], ['已寄出', '已回信']);
+eq('云函数：保留回信地址与联系方式',
+  [full.record.senderAddress, full.record.contact], ['东京都xx区', 'ja1abc@example.com']);
+eq('云函数：保留发信人姓名', full.record.senderName, '田中太郎');
+const bad = scf._sanitizeSubmit({
+  callsign: 'JA1ABC', date: '2026-01-05', submitter: '田中',
+  cardStatus: '乱填的状态', replied: '乱填'
+});
+eq('云函数：非法状态回落到默认值', [bad.record.cardStatus, bad.record.replied], ['未收到', '未回信']);
+eq('云函数：没填发信人姓名时用提交人补', bad.record.senderName, '田中');
+
 process.env.PUBLIC_REPO_NAME = 'ham-radio-club-qsl';
 eq('云函数：配了环境变量后，前端传主库也写不进主库',
   scf._publicRepoParams({ repo: 'ham-radio-club' }).repo, 'ham-radio-club-qsl');

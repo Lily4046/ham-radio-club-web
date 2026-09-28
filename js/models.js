@@ -21,6 +21,8 @@
 
   var BAND_OPTIONS = ['160m', '80m', '40m', '30m', '20m', '17m', '15m', '12m', '10m', '6m', '2m', '70cm', '其他'];
   var MODE_OPTIONS = ['SSB', 'CW', 'FT8', 'FT4', 'RTTY', 'AM', 'FM', '其他'];
+  var CARD_STATUS_OPTIONS = ['未收到', '已收到', '已寄出', '双向确认'];
+  var REPLY_OPTIONS = ['已回信', '未回信'];
 
   var QSL_FIELDS = [
     { key: 'callsign', label: '对方呼号', type: 'text', required: true },
@@ -30,23 +32,29 @@
     { key: 'date', label: '通联日期', type: 'date', required: true },
     { key: 'timeUtc', label: '时间 (UTC)', type: 'time', required: false },
     { key: 'rst', label: '信号报告', type: 'text', required: false },
-    { key: 'cardStatus', label: '卡片状态', type: 'select', options: ['未收到', '已收到', '已寄出', '双向确认'], required: false, default: '未收到' },
-    { key: 'replied', label: '是否回信', type: 'select', options: ['已回信', '未回信'], required: false, default: '未回信' },
+    { key: 'cardStatus', label: '卡片状态', type: 'select', options: CARD_STATUS_OPTIONS, required: false, default: '未收到' },
+    { key: 'replied', label: '是否回信', type: 'select', options: REPLY_OPTIONS, required: false, default: '未回信' },
     { key: 'senderName', label: '发信人', type: 'text', required: false },
     { key: 'senderAddress', label: '来信地址', type: 'textarea', required: false },
+    { key: 'contact', label: '联系方式', type: 'text', required: false },
     { key: 'notes', label: '备注', type: 'textarea', required: false }
   ];
 
-  // 公开登记（未授权成员/访客自行填写）：只保留登记必要的字段，
-  // 卡片状态、回信状态、来信地址等内部跟进字段不出现在公开表单里。
+  // 公开登记：由「QSL 卡的原主人（对方台）」自己填写自己发出的卡片。
+  // 回信相关的字段与 QSL 卡表用同一套口径，登记进来就能直接对上统计。
   var PUBLIC_QSL_FIELDS = [
     { key: 'callsign', label: '对方呼号', type: 'text', required: true },
+    { key: 'senderName', label: '发信人姓名', type: 'text', required: false },
     { key: 'ourCallsign', label: '本台呼号', type: 'text', required: false },
     { key: 'band', label: '波段', type: 'select', options: BAND_OPTIONS, required: false },
     { key: 'mode', label: '模式', type: 'select', options: MODE_OPTIONS, required: false },
     { key: 'date', label: '通联日期', type: 'date', required: true },
     { key: 'timeUtc', label: '时间 (UTC)', type: 'time', required: false },
     { key: 'rst', label: '信号报告', type: 'text', required: false },
+    { key: 'cardStatus', label: '卡片状态', type: 'select', options: CARD_STATUS_OPTIONS, required: false, default: '已寄出' },
+    { key: 'replied', label: '是否已收到我们的回信', type: 'select', options: REPLY_OPTIONS, required: false, default: '未回信' },
+    { key: 'senderAddress', label: '回信地址（需要我们寄卡时填写）', type: 'textarea', required: false },
+    { key: 'contact', label: '联系方式（邮箱 / 微信，可选）', type: 'text', required: false },
     { key: 'submitter', label: '提交人（姓名 / 呼号）', type: 'text', required: true },
     { key: 'notes', label: '备注', type: 'textarea', required: false }
   ];
@@ -165,9 +173,12 @@
     ['callsign', 'ourCallsign', 'band', 'mode', 'date', 'timeUtc', 'rst'].forEach(function (k) {
       if (pub[k] !== undefined && pub[k] !== null) rec[k] = pub[k];
     });
-    rec.cardStatus = '未收到';
-    rec.replied = '未回信';
-    rec.senderName = pub.submitter || '';
+    // 卡片状态与回信情况由登记人填写，和 QSL 卡表同一套口径，直接沿用
+    rec.cardStatus = pub.cardStatus || '未收到';
+    rec.replied = pub.replied || '未回信';
+    rec.senderName = pub.senderName || pub.submitter || '';
+    rec.senderAddress = pub.senderAddress || '';
+    rec.contact = pub.contact || '';
     var trace = '公开登记：' + (pub.submitter || '—') + ' 于 ' + (pub.submittedAt || '—') + ' 提交';
     rec.notes = pub.notes ? (pub.notes + '（' + trace + '）') : trace;
     rec.sourceId = pub.id;
