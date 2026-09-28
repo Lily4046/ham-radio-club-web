@@ -206,6 +206,21 @@ eq('并入后默认状态', [mapped.cardStatus, mapped.replied], ['未收到', '
 eq('并入后记录来源 id（用于去重）', mapped.sourceId, 'pub_1');
 ok('并入后备注带溯源信息', mapped.notes.indexOf('公开登记') !== -1, mapped.notes);
 
+// 登记表字段：呼号（原「对方呼号」）+ 卡片信息，不再有「本台呼号」「提交人」
+const pubFields = app.HAM.Models.MODELS.publicQsl.fields.map((f) => f.key);
+eq('登记表字段', pubFields,
+  ['callsign', 'senderName', 'band', 'mode', 'date', 'timeUtc', 'rst',
+    'cardStatus', 'replied', 'senderAddress', 'contact', 'notes']);
+eq('「对方呼号」已改名为「呼号」',
+  app.HAM.Models.MODELS.publicQsl.fields[0].label, '呼号');
+ok('登记表删掉了「本台呼号」', pubFields.indexOf('ourCallsign') === -1);
+ok('登记表删掉了「提交人」', pubFields.indexOf('submitter') === -1);
+eq('登记表只剩呼号与日期必填',
+  app.HAM.Models.MODELS.publicQsl.fields.filter((f) => f.required).map((f) => f.key),
+  ['callsign', 'date']);
+eq('只有呼号+日期也能通过校验',
+  app.HAM.Models.validate('publicQsl', { callsign: 'JA1ABC', date: '2026-09-28' }), []);
+
 console.log('\n[8] 云函数：公开登记入库校验 + 写入目标钉死');
 const scf = require(join(ROOT, 'tencent-scf/index.js'));
 ok('云函数：缺必填被拒', !!scf._sanitizeSubmit({ callsign: '', date: '2025-01-05', submitter: 'x' }).error);
@@ -231,6 +246,10 @@ eq('云函数：保留登记人填的卡片状态与回信情况',
 eq('云函数：保留回信地址与联系方式',
   [full.record.senderAddress, full.record.contact], ['东京都xx区', 'ja1abc@example.com']);
 eq('云函数：保留发信人姓名', full.record.senderName, '田中太郎');
+const noSubmitter = scf._sanitizeSubmit({ callsign: 'JA1ABC', date: '2026-01-05', senderName: '' });
+ok('云函数：没填提交人也能收下', !noSubmitter.error);
+eq('云函数：发信人姓名缺失时回落到呼号', noSubmitter.record.senderName, 'JA1ABC');
+eq('云函数：更新人同样回落到呼号', noSubmitter.record.updatedBy, 'JA1ABC');
 const bad = scf._sanitizeSubmit({
   callsign: 'JA1ABC', date: '2026-01-05', submitter: '田中',
   cardStatus: '乱填的状态', replied: '乱填'

@@ -272,20 +272,20 @@ function sanitizeSubmit(record) {
     out[key] = v;
   });
 
-  if (!out.callsign) return { error: '对方呼号为必填项。' };
+  if (!out.callsign) return { error: '呼号为必填项。' };
   if (!out.date) return { error: '通联日期为必填项。' };
   if (!/^\d{4}-\d{2}-\d{2}$/.test(out.date)) return { error: '通联日期格式应为 YYYY-MM-DD。' };
   if (out.timeUtc && !/^\d{2}:\d{2}$/.test(out.timeUtc)) return { error: '时间格式应为 HH:MM（UTC）。' };
-  if (!out.submitter) return { error: '提交人为必填项。' };
 
   out.id = 'pub_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8);
   out.submittedAt = new Date().toISOString();
   // 卡片状态 / 回信情况由登记人（QSL 卡原主人）填写，只接受白名单里的值
   if (CARD_STATUS_OPTIONS.indexOf(out.cardStatus) === -1) out.cardStatus = '未收到';
   if (REPLY_OPTIONS.indexOf(out.replied) === -1) out.replied = '未回信';
-  if (!out.senderName) out.senderName = out.submitter;
+  // 表单里已经没有「提交人」了：发信人/更新人按 姓名 → 呼号 兜底
+  if (!out.senderName) out.senderName = out.submitter || out.callsign;
   out.updatedAt = out.submittedAt;
-  out.updatedBy = out.submitter;
+  out.updatedBy = out.submitter || out.senderName || out.callsign || '公开登记';
   out.source = 'public';
   return { record: out };
 }

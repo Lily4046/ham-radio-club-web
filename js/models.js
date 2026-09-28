@@ -43,9 +43,8 @@
   // 公开登记：由「QSL 卡的原主人（对方台）」自己填写自己发出的卡片。
   // 回信相关的字段与 QSL 卡表用同一套口径，登记进来就能直接对上统计。
   var PUBLIC_QSL_FIELDS = [
-    { key: 'callsign', label: '对方呼号', type: 'text', required: true },
+    { key: 'callsign', label: '呼号', type: 'text', required: true },
     { key: 'senderName', label: '发信人姓名', type: 'text', required: false },
-    { key: 'ourCallsign', label: '本台呼号', type: 'text', required: false },
     { key: 'band', label: '波段', type: 'select', options: BAND_OPTIONS, required: false },
     { key: 'mode', label: '模式', type: 'select', options: MODE_OPTIONS, required: false },
     { key: 'date', label: '通联日期', type: 'date', required: true },
@@ -55,7 +54,6 @@
     { key: 'replied', label: '是否已收到我们的回信', type: 'select', options: REPLY_OPTIONS, required: false, default: '未回信' },
     { key: 'senderAddress', label: '回信地址（需要我们寄卡时填写）', type: 'textarea', required: false },
     { key: 'contact', label: '联系方式（邮箱 / 微信，可选）', type: 'text', required: false },
-    { key: 'submitter', label: '提交人（姓名 / 呼号）', type: 'text', required: true },
     { key: 'notes', label: '备注', type: 'textarea', required: false }
   ];
 
@@ -179,7 +177,8 @@
     rec.senderName = pub.senderName || pub.submitter || '';
     rec.senderAddress = pub.senderAddress || '';
     rec.contact = pub.contact || '';
-    var trace = '公开登记：' + (pub.submitter || '—') + ' 于 ' + (pub.submittedAt || '—') + ' 提交';
+    var who = pub.submitter || pub.senderName || pub.callsign || '—';
+    var trace = '公开登记：' + who + ' 于 ' + (pub.submittedAt || '—') + ' 提交';
     rec.notes = pub.notes ? (pub.notes + '（' + trace + '）') : trace;
     rec.sourceId = pub.id;
     rec.importedAt = new Date().toISOString();
