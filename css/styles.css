@@ -151,6 +151,19 @@ body {
 .data-table tbody tr:last-child td { border-bottom: none; }
 .actions-col { text-align: right; }
 
+/* 字段多的时候表格会很宽，把「操作」列固定在右侧：
+   无论横向滚到哪里，编辑/删除都始终露在最右边，不用滚到底再拖横向滚动条 */
+.data-table th.actions-col,
+.data-table td.actions-col {
+  position: sticky;
+  right: 0;
+  background: var(--card);
+  box-shadow: -8px 0 10px -8px rgba(16, 24, 40, .18);
+}
+.data-table td.actions-col { z-index: 2; }
+.data-table th.actions-col { background: #f8fafc; z-index: 3; }
+.data-table tbody tr:hover td.actions-col { background: #f8fafc; }
+
 .empty {
   padding: 40px;
   text-align: center;
@@ -451,6 +464,9 @@ body.modal-open { overflow: hidden; }
     gap: 8px;
     border-bottom: none;
     padding-top: 10px;
+    /* 手机上表格已变成卡片列表，不需要固定列 */
+    position: static;
+    box-shadow: none;
   }
   .data-table td.actions-col::before { content: none; }
   .actions-col .btn { min-height: 36px; }
