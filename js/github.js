@@ -93,7 +93,10 @@
 
   /* ---------- 高层 API ---------- */
   function readFile(path, target) {
-    if (HAM.Auth.isGuest()) {
+    var cfg = HAM.CONFIG.get();
+    // 游客本来就走代理；成员开 readViaProxy（默认开）时也走代理，
+    // 因为国内直连 api.github.com 常常要好几秒，走腾讯云只要 0.2 + 0.6 秒。
+    if (HAM.Auth.isGuest() || (cfg.readViaProxy && cfg.proxyUrl)) {
       return readFileViaProxy(path, target);
     }
     var coords = repoCoords(target);
@@ -170,7 +173,8 @@
   }
 
   function listCommits(path, target) {
-    if (HAM.Auth.isGuest()) {
+    var cfg = HAM.CONFIG.get();
+    if (HAM.Auth.isGuest() || (cfg.readViaProxy && cfg.proxyUrl)) {
       return listCommitsViaProxy(path, target);
     }
     var coords = repoCoords(target);

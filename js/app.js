@@ -121,6 +121,12 @@
     }
   }
 
+  // 后台拿到用户信息后刷新顶栏和标签（例如 OAuth 登录时先进入应用、后补账号名）
+  function onUserLoaded() {
+    renderUser();
+    renderTabs();
+  }
+
   function renderTabs() {
     var tabs = document.getElementById('tabs');
     tabs.innerHTML = visibleCollections().map(function (ck) {
@@ -178,14 +184,21 @@
         return;
       }
       this.disabled = true;
-      this.textContent = '登录中…';
+      var btn = this;
+      var startedAt = Date.now();
+      btn.textContent = '登录中…';
+      var tick = setInterval(function () {
+        btn.textContent = '登录中… 已等待 ' + Math.round((Date.now() - startedAt) / 1000) + ' 秒';
+      }, 1000);
       HAM.Auth.loginWithToken(token).then(function () {
+        clearInterval(tick);
         enterApp();
       }).catch(function (e) {
-        this.disabled = false;
-        this.textContent = '登录';
+        clearInterval(tick);
+        btn.disabled = false;
+        btn.textContent = '登录';
         showLoginError('登录失败：' + e.message);
-      }.bind(this));
+      });
     }.bind(document.getElementById('btnLoginToken')));
 
     document.getElementById('btnLoginOAuth').addEventListener('click', function () {
@@ -367,6 +380,8 @@
     bindLogin();
     bindSettings();
     applyLoginMode();
+    // 顺手把云函数叫醒（冷启动 1–3 秒，藏在用户看登录页的时间里）
+    if (HAM.GitHub.pingProxy) HAM.GitHub.pingProxy();
     init();
   });
 
@@ -394,6 +409,6 @@
     }
   }
 
-  // 供其他模块切换登录页（如公开登记页的「返回登录」）
-  HAM.App = { showLogin: showLogin };
+  // 供其他模块调用：切换登录页（公开登记页的「返回登录」）、用户信息补全后刷新界面
+  HAM.App = { showLogin: showLogin, onUserLoaded: onUserLoaded };
 })();

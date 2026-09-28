@@ -170,6 +170,7 @@ proxyUrl: 'https://1493061864-6jpy3x99lf.ap-guangzhou.tencentscf.com',  // 末�
 |------|-------------|
 | 游客提示 `GITHUB_READ_TOKEN 未配置` | 云函数环境变量没配 `GITHUB_READ_TOKEN` |
 | 游客看不到数据 / 404 | 只读令牌没授权 `ham-radio-club`，或权限不是 Contents Read |
+| 登录慢、登录后列表加载慢 | 成员原来是直连 api.github.com 拉数据；`config.js` 里 `readViaProxy` 默认已开，读取走云函数（浏览器→腾讯云 0.2 秒 + 腾讯云→GitHub 0.6 秒）。若被关掉过，把它设回 `true` |
 | 公开登记提示「未配置 GITHUB_SUBMIT_TOKEN」 | 云函数环境变量没配写入令牌，或没重新部署最新 `index.js` |
 | 公开登记返回 403/404 | 写入令牌没有勾选「登记仓库」的 Contents: Read and write 权限，或登记仓库名/branch 不对 |
 | 成员点「并入 QSL 卡」报 403/404 | 成员令牌没有登记仓库的写权限（没被加为协作者），或主数据库仓库没有写权限 |

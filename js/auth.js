@@ -54,10 +54,25 @@
   }
 
   /* ---------- PAT 登录 ---------- */
-  function loginWithToken(token) {
+  // options.deferUser：先拿令牌进入应用，用户信息在后台补。
+  // OAuth 刚换完令牌时用得上——省掉一次「浏览器 → api.github.com」的跨太平洋往返，
+  // 进入应用能快好几秒（令牌刚换出来，一定是有效的）。
+  function loginWithToken(token, options) {
     token = String(token || '').trim();
     if (!token) {
       return Promise.reject(new Error('访问令牌不能为空。'));
+    }
+    if (options && options.deferUser) {
+      state = { mode: 'pat', token: token, user: null };
+      save();
+      HAM.GitHub.getUser(token).then(function (user) {
+        state.user = user;
+        save();
+        if (HAM.App && HAM.App.onUserLoaded) HAM.App.onUserLoaded();
+      }).catch(function () {
+        // 拿不到用户信息不影响使用，只是头顶不显示账号名
+      });
+      return Promise.resolve(null);
     }
     return HAM.GitHub.getUser(token).then(function (user) {
       state = { mode: 'pat', token: token, user: user };
@@ -144,7 +159,8 @@
         // 清理地址栏中的 code/state，避免刷新重复交换
         clearOAuthQuery();
         sessionStorage.removeItem('ham.oauth.state');
-        return loginWithToken(data.access_token);
+        // 令牌刚换出来一定有效，先直接进应用，用户信息后台补（省一次跨太平洋往返）
+        return loginWithToken(data.access_token, { deferUser: true });
       });
     });
   }

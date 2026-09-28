@@ -56,6 +56,12 @@
     // 登记库是私有仓库，默认不给游客看（成员登录后才有）。想开放就改成 true。
     publicQslForGuest: false,
 
+    // 成员读取数据是否走腾讯云函数代理。
+    // 国内直连 api.github.com 常常要好几秒（有时直接卡住），打开这个开关后
+    // 浏览器→腾讯云约 0.2 秒、腾讯云→GitHub 固定约 0.6 秒，列表加载会快很多。
+    // 写入仍然用成员自己的令牌直连 GitHub，权限归属不变。
+    readViaProxy: true,
+
     // 数据文件在仓库中的相对路径（一般无需修改）
     files: {
       lab: 'data/lab-items.json',

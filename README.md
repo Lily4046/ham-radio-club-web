@@ -212,6 +212,7 @@ proxyUrl: 'https://xxx.workers.dev'
 |------|------|------|
 | `config.js` | `publicSubmit: false` | 首页不显示登记入口 |
 | `config.js` | `guestRead: false` | 首页不显示「游客登录（只读浏览）」 |
+| `config.js` | `readViaProxy` | 成员读取也走腾讯云代理（默认 `true`）。国内直连 api.github.com 慢，走代理能快很多；写入仍用成员自己的令牌直连 |
 | `config.js` | `publicQslForGuest` | 游客是否也能看到「QSL 登记」栏（默认 `false`，登记库是私有的） |
 | `config.js` | `publicRepo` | 公开登记落在哪个仓库（和主数据库 `owner`/`repo` 分开） |
 | 云函数环境变量 | `PUBLIC_REPO_OWNER` / `PUBLIC_REPO_NAME` / `PUBLIC_REPO_BRANCH` | 钉死公开登记写入的仓库，前端传什么都会被忽略 |
