@@ -178,6 +178,20 @@ body {
   margin-top: 12px;
 }
 
+/* 切换标签、数据还没到时的加载占位 */
+.loading-box {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 56px 16px;
+  color: var(--muted);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
 /* ---------- 按钮 ---------- */
 .btn {
   display: inline-flex;

@@ -154,6 +154,14 @@
       return;
     }
     HAM.UI.showLoading(true);
+    // 未缓存的集合要等网络，先把视图区换成「正在加载」，
+    // 否则上一个标签的内容会僵在那儿，看起来像卡住
+    var box = document.getElementById('viewContainer');
+    if (box) {
+      var m = HAM.Models.MODELS[ck];
+      box.innerHTML = '<div class="loading-box"><span class="spinner"></span>正在加载 ' +
+        HAM.UI.escapeHtml(m ? m.title : '') + '…</div>';
+    }
     HAM.Store.load(ck).then(function () {
       HAM.UI.showLoading(false);
       // 加载期间用户可能又切了别的标签，丢弃过期结果，避免「高亮的标签和内容不一致」

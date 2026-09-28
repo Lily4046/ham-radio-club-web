@@ -29,6 +29,15 @@
     return '/repos/' + encodeURIComponent(c.owner) + '/' + encodeURIComponent(c.repo) + '/contents/' + path;
   }
 
+  // 记住「只读代理读不到这个仓库」（比如旧版云函数没配登记库权限），
+  // 本次页面生命周期内不再反复尝试，直接走直连。
+  var proxyCantRead = {};
+
+  function repoKey(target) {
+    var c = repoCoords(target);
+    return c.owner + '/' + c.repo;
+  }
+
   /* ---------- 基础请求 ---------- */
   function request(method, path, body, tokenOverride) {
     var token = tokenOverride || HAM.Auth.getToken();
@@ -97,12 +106,27 @@
     // 游客本来就走代理；成员开 readViaProxy（默认开）时也走代理，
     // 因为国内直连 api.github.com 常常要好几秒，走腾讯云只要 0.2 + 0.6 秒。
     if (HAM.Auth.isGuest() || (cfg.readViaProxy && cfg.proxyUrl)) {
-      // 例外：公开登记库是独立的私有仓库，只读代理的令牌没有它的权限，
-      // 而登录成员自己有权限（是仓库的拥有者/协作者），所以这一类直连读取。
-      if (!(target && target.isPublicRepo) || HAM.Auth.isGuest()) {
+      // 登记库在独立的私有仓库里：新版云函数会用写入令牌代读（快），
+      // 旧版只读令牌没有它的权限（会返回「不存在」）。所以先试代理，
+      // 读不到就退回直连（成员自己有权限），并记住这次结果，避免每次多绕一趟。
+      if (target && target.isPublicRepo && !HAM.Auth.isGuest()) {
+        var key = repoKey(target);
+        if (!proxyCantRead[key]) {
+          return readFileViaProxy(path, target).then(function (r) {
+            if (r && r.exists) return r;
+            proxyCantRead[key] = true;
+            return readFileDirect(path, target);
+          });
+        }
+      } else {
         return readFileViaProxy(path, target);
       }
     }
+    return readFileDirect(path, target);
+  }
+
+  // 直连 GitHub 读取（不经云函数）
+  function readFileDirect(path, target) {
     var coords = repoCoords(target);
     // 加一个随时间变化的缓存穿透参数，避免 GitHub CDN 在刚写入后返回旧内容
     return request('GET', contentsUrl(path, target) +
@@ -179,10 +203,26 @@
   function listCommits(path, target) {
     var cfg = HAM.CONFIG.get();
     if (HAM.Auth.isGuest() || (cfg.readViaProxy && cfg.proxyUrl)) {
-      if (!(target && target.isPublicRepo) || HAM.Auth.isGuest()) {
+      if (target && target.isPublicRepo && !HAM.Auth.isGuest()) {
+        var key = repoKey(target);
+        if (!proxyCantRead[key]) {
+          return listCommitsViaProxy(path, target).catch(function (e) {
+            // 旧版云函数读不到登记库时会返回空/报错，退回直连
+            if (e && e.status === 404) {
+              proxyCantRead[key] = true;
+              return listCommitsDirect(path, target);
+            }
+            throw e;
+          });
+        }
+      } else {
         return listCommitsViaProxy(path, target);
       }
     }
+    return listCommitsDirect(path, target);
+  }
+
+  function listCommitsDirect(path, target) {
     var coords = repoCoords(target);
     return request('GET', '/repos/' + encodeURIComponent(coords.owner) + '/' + encodeURIComponent(coords.repo) +
       '/commits?path=' + path + '&sha=' + encodeURIComponent(coords.branch) + '&per_page=50');
