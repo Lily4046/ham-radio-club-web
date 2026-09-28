@@ -158,7 +158,9 @@ body {
   position: sticky;
   right: 0;
   background: var(--card);
-  box-shadow: -8px 0 10px -8px rgba(16, 24, 40, .18);
+  /* 左侧一条竖线，把「操作」列和前面的字段明确隔开 */
+  border-left: 1px solid #d5dde8;
+  box-shadow: -6px 0 8px -6px rgba(16, 24, 40, .16);
 }
 .data-table td.actions-col { z-index: 2; }
 .data-table th.actions-col { background: #f8fafc; z-index: 3; }
@@ -467,6 +469,7 @@ body.modal-open { overflow: hidden; }
     /* 手机上表格已变成卡片列表，不需要固定列 */
     position: static;
     box-shadow: none;
+    border-left: none;
   }
   .data-table td.actions-col::before { content: none; }
   .actions-col .btn { min-height: 36px; }
