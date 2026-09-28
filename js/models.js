@@ -26,7 +26,6 @@
 
   var QSL_FIELDS = [
     { key: 'callsign', label: '呼号', type: 'text', required: true },
-    { key: 'senderName', label: '发信人姓名', type: 'text', required: false },
     { key: 'band', label: '波段', type: 'select', options: BAND_OPTIONS, required: false },
     { key: 'mode', label: '模式', type: 'select', options: MODE_OPTIONS, required: false },
     { key: 'date', label: '通联日期', type: 'date', required: true },
@@ -43,7 +42,6 @@
   // 回信相关的字段与 QSL 卡表用同一套口径，登记进来就能直接对上统计。
   var PUBLIC_QSL_FIELDS = [
     { key: 'callsign', label: '呼号', type: 'text', required: true },
-    { key: 'senderName', label: '发信人姓名', type: 'text', required: false },
     { key: 'band', label: '波段', type: 'select', options: BAND_OPTIONS, required: false },
     { key: 'mode', label: '模式', type: 'select', options: MODE_OPTIONS, required: false },
     { key: 'date', label: '通联日期', type: 'date', required: true },

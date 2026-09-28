@@ -209,12 +209,13 @@ ok('并入后备注带溯源信息', mapped.notes.indexOf('公开登记') !== -1
 // 登记表字段：呼号（原「对方呼号」）+ 卡片信息，不再有「本台呼号」「提交人」
 const pubFields = app.HAM.Models.MODELS.publicQsl.fields.map((f) => f.key);
 eq('登记表字段', pubFields,
-  ['callsign', 'senderName', 'band', 'mode', 'date', 'timeUtc', 'rst',
+  ['callsign', 'band', 'mode', 'date', 'timeUtc', 'rst',
     'cardStatus', 'replied', 'senderAddress', 'contact', 'notes']);
 eq('「对方呼号」已改名为「呼号」',
   app.HAM.Models.MODELS.publicQsl.fields[0].label, '呼号');
 ok('登记表删掉了「本台呼号」', pubFields.indexOf('ourCallsign') === -1);
 ok('登记表删掉了「提交人」', pubFields.indexOf('submitter') === -1);
+ok('两边都删掉了「发信人姓名」', pubFields.indexOf('senderName') === -1);
 eq('登记表只剩呼号与日期必填',
   app.HAM.Models.MODELS.publicQsl.fields.filter((f) => f.required).map((f) => f.key),
   ['callsign', 'date']);
