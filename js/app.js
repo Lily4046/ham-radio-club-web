@@ -14,8 +14,6 @@
     var cfg = HAM.CONFIG.get();
     var isGuest = HAM.Auth.isGuest();
     return COLLECTIONS.filter(function (ck) {
-      // 直接写主库模式：没有单独的登记库，登记记录会直接出现在「QSL 卡」里，这一栏不用显示
-      if (ck === 'publicQsl' && !HAM.CONFIG.repoFor('publicQsl').isPublicRepo) return false;
       if (ck === 'publicQsl' && isGuest && cfg.publicQslForGuest !== true) return false;
       return true;
     });

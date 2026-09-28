@@ -141,24 +141,15 @@ function repoParams(body) {
   };
 }
 
-// 公开登记写入目标：
-//   配了 PUBLIC_REPO_NAME → 写那个「独立登记库」，成员核对后再并入主库；
-//   没配               → 直接写主数据库（默认模式，提交即入账，最快）。
-// 前端传的坐标只在环境变量没配时兜底。
+// 公开登记写入目标：**独立仓库**（和主数据库分开）。
+// 环境变量优先；前端传的坐标只在没配环境变量时兜底。
+// 真正的硬边界是 GITHUB_SUBMIT_TOKEN 的授权范围：令牌只授权这一个仓库，
+// 所以就算函数被滥用，也写不进主数据库。
 function publicRepoParams(body) {
-  if (process.env.PUBLIC_REPO_NAME) {
-    return {
-      owner: process.env.PUBLIC_REPO_OWNER || process.env.REPO_OWNER || body.owner || 'Lily4046',
-      repo: process.env.PUBLIC_REPO_NAME,
-      branch: process.env.PUBLIC_REPO_BRANCH || process.env.REPO_BRANCH || body.branch || 'main',
-      isMainRepo: false
-    };
-  }
   return {
-    owner: process.env.REPO_OWNER || body.owner || 'Lily4046',
-    repo: process.env.REPO_NAME || body.repo || 'ham-radio-club',
-    branch: process.env.REPO_BRANCH || body.branch || 'main',
-    isMainRepo: true
+    owner: process.env.PUBLIC_REPO_OWNER || body.owner || 'Lily4046',
+    repo: process.env.PUBLIC_REPO_NAME || body.repo || 'ham-radio-club-public',
+    branch: process.env.PUBLIC_REPO_BRANCH || body.branch || 'main'
   };
 }
 
@@ -279,13 +270,8 @@ function sanitizeSubmit(record) {
   if (out.timeUtc && !/^\d{2}:\d{2}$/.test(out.timeUtc)) return { error: '时间格式应为 HH:MM（UTC）。' };
   if (!out.submitter) return { error: '提交人为必填项。' };
 
-  // 补齐 QSL 卡那一侧需要的字段，这样直接写主库时表格里也能正常显示
   out.id = 'pub_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8);
   out.submittedAt = new Date().toISOString();
-  out.cardStatus = '未收到';
-  out.replied = '未回信';
-  out.senderName = out.submitter;
-  out.senderAddress = '';
   out.updatedAt = out.submittedAt;
   out.updatedBy = out.submitter;
   out.source = 'public';
@@ -329,13 +315,9 @@ async function handleSubmit(body, event) {
     return jsonResp(429, { error: 'too many requests', message: '提交过于频繁，请稍后再试。' });
   }
 
-  // 写目标由环境变量决定：默认直接写主库的 QSL 卡文件，配了 PUBLIC_REPO_NAME 才写独立登记库
-  const target = publicRepoParams(body);
-  const owner = target.owner;
-  const repo = target.repo;
-  const branch = target.branch;
-  const filePath = process.env.PUBLIC_QSL_PATH ||
-    (target.isMainRepo ? 'data/qsl-cards.json' : 'data/qsl-public.json');
+  // 只写「公开登记独立仓库」，绝不碰主数据库仓库
+  const { owner, repo, branch } = publicRepoParams(body);
+  const filePath = process.env.PUBLIC_QSL_PATH || 'data/qsl-public.json';
   if (!isValidPath(filePath)) return jsonResp(500, { error: 'invalid PUBLIC_QSL_PATH' });
 
   const apiPath = '/repos/' + encodeURIComponent(owner) + '/' + encodeURIComponent(repo) +

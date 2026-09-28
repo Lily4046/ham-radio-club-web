@@ -178,13 +178,14 @@ await app.HAM.Store.removeMany('qsl', ['x1', 'x2'], '批量删除');
 eq('批量删除只提交一次', app.writes.length - batchWrites, 1);
 eq('批量删除结果', app.HAM.Store.getCached('qsl').items.map((i) => i.id), ['a', 'b']);
 
-console.log('\n[7] 公开登记写入目标：默认直接进主库，可选独立登记库');
+console.log('\n[7] 公开登记：独立仓库隔离 + 字段映射');
+const pubTarget = app.HAM.CONFIG.repoFor('publicQsl');
 const mainTarget = app.HAM.CONFIG.repoFor('qsl');
-eq('默认（未配 publicRepo）公开登记写主库', app.HAM.CONFIG.repoFor('publicQsl').repo, 'ham-radio-club');
-eq('默认写的文件就是 QSL 卡数据文件', app.HAM.CONFIG.repoFor('publicQsl').path, 'data/qsl-cards.json');
-eq('主库坐标没变', [mainTarget.owner, mainTarget.repo, mainTarget.branch],
+eq('公开登记落在独立仓库', [pubTarget.owner, pubTarget.repo, pubTarget.branch],
+  ['Lily4046', 'ham-radio-club-qsl', 'main']);
+eq('主库仍是主数据库', [mainTarget.owner, mainTarget.repo, mainTarget.branch],
   ['Lily4046', 'ham-radio-club', 'main']);
-ok('默认模式下没有独立登记库', app.HAM.CONFIG.repoFor('publicQsl').isPublicRepo === false);
+ok('mainTarget 标记为公开仓库', mainTarget.isPublicRepo === false && pubTarget.isPublicRepo === true);
 
 app._readImpl = async () => ({
   exists: true,
@@ -193,17 +194,10 @@ app._readImpl = async () => ({
 });
 await app.HAM.Store.refresh('publicQsl');
 const lastRead = app.reads[app.reads.length - 1];
-eq('默认模式下读取的就是主库', [lastRead.target.owner, lastRead.target.repo], ['Lily4046', 'ham-radio-club']);
-eq('默认模式下读取 QSL 卡文件', lastRead.path, 'data/qsl-cards.json');
+eq('读取公开登记确实打到独立仓库', [lastRead.target.owner, lastRead.target.repo],
+  ['Lily4046', 'ham-radio-club-qsl']);
+eq('读取公开登记的文件路径', lastRead.path, 'data/qsl-public.json');
 eq('默认不给游客看登记库', app.HAM.CONFIG.get().publicQslForGuest, false);
-
-// 想回到「先存独立登记库、核对后再并入」的模式，只要在 config.js 里填上 publicRepo
-setOverride(app, { publicRepo: { owner: 'Lily4046', repo: 'ham-radio-club-qsl', branch: 'main' } });
-const stagedTarget = app.HAM.CONFIG.repoFor('publicQsl');
-eq('配了 publicRepo 就写独立登记库', [stagedTarget.repo, stagedTarget.path, stagedTarget.isPublicRepo],
-  ['ham-radio-club-qsl', 'data/qsl-public.json', true]);
-app.localStorage.removeItem(LS_KEY);
-eq('清掉覆盖配置后回到直接写主库', app.HAM.CONFIG.repoFor('publicQsl').repo, 'ham-radio-club');
 
 const pubItem = app.HAM.Store.getCached('publicQsl').items[0];
 const mapped = app.HAM.Models.toQslFromPublic(pubItem, 'lily');
@@ -228,11 +222,11 @@ ok('云函数：自动补 id / 时间 / 来源',
   /^pub_/.test(submit.record.id) && !!submit.record.updatedAt && submit.record.source === 'public');
 
 process.env.PUBLIC_REPO_NAME = 'ham-radio-club-qsl';
-eq('云函数：配了 PUBLIC_REPO_NAME 就写独立登记库',
+eq('云函数：配了环境变量后，前端传主库也写不进主库',
   scf._publicRepoParams({ repo: 'ham-radio-club' }).repo, 'ham-radio-club-qsl');
 delete process.env.PUBLIC_REPO_NAME;
-eq('云函数：没配 PUBLIC_REPO_NAME 时默认写主库', scf._publicRepoParams({}).repo, 'ham-radio-club');
-eq('云函数：默认模式标记为主库', scf._publicRepoParams({}).isMainRepo, true);
+eq('云函数：没配环境变量时用请求里的登记仓库',
+  scf._publicRepoParams({ repo: 'staging' }).repo, 'staging');
 
 delete process.env.PUBLIC_READ_PATHS;
 eq('只读代理：未配置白名单时保持旧行为', scf._readAllowed('data/lab-items.json'), true);
