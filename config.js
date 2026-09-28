@@ -32,12 +32,21 @@
 
     // 游客（只读）登录：读取走腾讯云函数代理（只读令牌存在云函数环境变量 GITHUB_READ_TOKEN 里）
     // 配置了 proxyUrl 即显示「游客登录」按钮；无需在前端放令牌。
+    // 不想开放「看全库」时改成 false，登录页就不显示游客按钮
+    //（服务端要一起收紧的话，给云函数配 PUBLIC_READ_PATHS，见 tencent-scf/README.md）。
+    guestRead: true,
+
+    // 公开 QSL 登记：没有 GitHub 权限的人（或访客）无需登录即可提交 QSL 卡记录，
+    // 提交内容写入 files.publicQsl，且提交页不加载、不显示任何已有数据。
+    // 提交由云函数用环境变量 GITHUB_SUBMIT_TOKEN 代写，前端不存任何令牌。
+    publicSubmit: true,
 
     // 数据文件在仓库中的相对路径（一般无需修改）
     files: {
       lab: 'data/lab-items.json',
       qsl: 'data/qsl-cards.json',
-      radio: 'data/radio-equipment.json'
+      radio: 'data/radio-equipment.json',
+      publicQsl: 'data/qsl-public.json'
     }
   };
 

@@ -29,16 +29,28 @@
     return Object.keys(set).sort(function (a, b) { return a.localeCompare(b, 'zh-CN'); });
   }
 
-  function compareValues(a, b) {
+  function fieldType(model, key) {
+    var f = model.fields.filter(function (x) { return x.key === key; })[0];
+    return f ? f.type : '';
+  }
+
+  function compareValues(a, b, type) {
     var av = (a === null || a === undefined) ? '' : a;
     var bv = (b === null || b === undefined) ? '' : b;
     if (av === '' && bv === '') return 0;
     if (av === '') return 1;   // 空值排最后（升序）
     if (bv === '') return -1;
+    if (type === 'number') {
+      var an = Number(av), bn = Number(bv);
+      if (isFinite(an) && isFinite(bn)) return an - bn;
+    }
     if (typeof av === 'number' && typeof bv === 'number') return av - bv;
     var as = String(av), bs = String(bv);
-    var ad = Date.parse(as), bd = Date.parse(bs);
-    if (!isNaN(ad) && !isNaN(bd)) return ad - bd;
+    // 只有日期/时间列按时间先后比较（否则 "3" 会被 Date.parse 当成 2001-03，排序错乱）
+    if (type === 'date' || type === 'time') {
+      var ad = Date.parse(as), bd = Date.parse(bs);
+      if (!isNaN(ad) && !isNaN(bd)) return ad - bd;
+    }
     return as.localeCompare(bs, 'zh-CN');
   }
 
@@ -106,6 +118,8 @@
     var model = HAM.Models.MODELS[currentCk];
     var data = HAM.Store.getCached(currentCk);
     var items = data ? data.items : [];
+    // 先同步筛选下拉（选项变化时可能清掉已失效的筛选值），再据此过滤，保证表格与筛选栏一致
+    syncFilterOptions();
     var q = (document.getElementById('searchInput').value || '').trim().toLowerCase();
 
     var filtered = items.filter(function (it) {
@@ -123,7 +137,8 @@
     if (sortState.key) {
       var key = sortState.key;
       var dir = sortState.dir;
-      filtered.sort(function (a, b) { return compareValues(a[key], b[key]) * dir; });
+      var type = (key === 'updatedAt') ? 'date' : fieldType(model, key);
+      filtered.sort(function (a, b) { return compareValues(a[key], b[key], type) * dir; });
     }
 
     var body = document.getElementById('tableBody');
@@ -142,8 +157,6 @@
       var active = !!q || Object.keys(filters).some(function (k) { return !!filters[k]; });
       hint.textContent = active ? ('筛选/搜索后 ' + filtered.length + ' / 共 ' + items.length + ' 条') : '';
     }
-
-    syncFilterOptions();
 
     body.querySelectorAll('[data-action]').forEach(function (btn) {
       btn.addEventListener('click', function () {
@@ -227,13 +240,23 @@
     document.querySelectorAll('#filterBar .filter-select').forEach(function (sel) {
       var key = sel.getAttribute('data-filter-key');
       var label = sel.getAttribute('data-filter-label') || key;
-      var selected = sel.value;
       var distinct = distinctValues(items, key);
-      sel.innerHTML = '<option value="">' + HAM.UI.escapeHtml(label) + '：全部</option>' +
-        distinct.map(function (v) {
-          return '<option value="' + HAM.UI.escapeHtml(v) + '">' + HAM.UI.escapeHtml(v) + '</option>';
-        }).join('');
-      if (selected && distinct.indexOf(selected) !== -1) sel.value = selected;
+      // 选项没变化就不重建 DOM（搜索时每次按键都重建 select 会打断下拉、也没必要）
+      var signature = label + '\u0000' + distinct.join('\u0001');
+      if (sel.getAttribute('data-sig') !== signature) {
+        sel.setAttribute('data-sig', signature);
+        sel.innerHTML = '<option value="">' + HAM.UI.escapeHtml(label) + '：全部</option>' +
+          distinct.map(function (v) {
+            return '<option value="' + HAM.UI.escapeHtml(v) + '">' + HAM.UI.escapeHtml(v) + '</option>';
+          }).join('');
+      }
+      var selected = sel.value;
+      // 之前选中的值已经被删光 → 同步清掉筛选条件，避免「界面显示全部、结果却是空」的错位
+      if (selected && distinct.indexOf(selected) === -1) {
+        selected = '';
+        if (filters[key]) filters[key] = '';
+      }
+      if (sel.value !== selected) sel.value = selected;
     });
   }
 
@@ -285,6 +308,10 @@
 
   function handleAction(action, id) {
     var data = HAM.Store.getCached(currentCk);
+    if (!data) {
+      HAM.UI.toast('数据尚未加载，请刷新后重试。', 'error');
+      return;
+    }
     var item = data.items.find(function (x) { return x.id === id; });
     if (!item) {
       HAM.UI.toast('该记录已不存在，请刷新。', 'error');
@@ -302,31 +329,7 @@
     var model = HAM.Models.MODELS[ck];
     var isEdit = !!item;
     var values = item ? Object.assign({}, item) : HAM.Models.newItem(ck);
-
-    var fieldsHtml = model.fields.map(function (f) {
-      var val = values[f.key];
-      var v = (val === null || val === undefined) ? '' : val;
-      var label = '<label>' + HAM.UI.escapeHtml(f.label) + (f.required ? ' <span class="req">*</span>' : '') + '</label>';
-
-      if (f.type === 'select') {
-        var opts = (f.options || []).map(function (o) {
-          return '<option value="' + HAM.UI.escapeHtml(o) + '"' + (String(v) === String(o) ? ' selected' : '') + '>' + HAM.UI.escapeHtml(o) + '</option>';
-        }).join('');
-        return '<div class="form-field">' + label +
-          '<select data-key="' + HAM.UI.escapeHtml(f.key) + '"><option value="">— 请选择 —</option>' + opts + '</select></div>';
-      }
-      if (f.type === 'textarea') {
-        return '<div class="form-field">' + label +
-          '<textarea data-key="' + HAM.UI.escapeHtml(f.key) + '" rows="3">' + HAM.UI.escapeHtml(v) + '</textarea></div>';
-      }
-      if (f.type === 'number') {
-        return '<div class="form-field">' + label +
-          '<input type="number" data-key="' + HAM.UI.escapeHtml(f.key) + '" value="' + HAM.UI.escapeHtml(v) + '"></div>';
-      }
-      var inputType = (f.type === 'date' || f.type === 'time') ? f.type : 'text';
-      return '<div class="form-field">' + label +
-        '<input type="' + inputType + '" data-key="' + HAM.UI.escapeHtml(f.key) + '" value="' + HAM.UI.escapeHtml(v) + '"></div>';
-    }).join('');
+    var fieldsHtml = HAM.UI.fieldsHtml(model, values);
 
     var modal = HAM.UI.openModal((isEdit ? '编辑' : '新增') + ' · ' + model.title, '' +
       '<form id="itemForm" onsubmit="return false;">' + fieldsHtml +
@@ -352,10 +355,8 @@
 
     modal.querySelector('#itemForm').addEventListener('submit', function (ev) {
       ev.preventDefault();
-      var patch = {};
-      modal.querySelectorAll('[data-key]').forEach(function (el) {
-        patch[el.getAttribute('data-key')] = el.value;
-      });
+      // 表单取到的都是字符串，按字段类型规整后再校验/保存
+      var patch = HAM.Models.normalize(ck, HAM.UI.readFields(modal.querySelector('#itemForm')));
 
       var errors = HAM.Models.validate(ck, patch);
       if (errors.length) {

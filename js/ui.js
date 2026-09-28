@@ -30,6 +30,46 @@
     };
   }
 
+  /* ---------- 表单字段渲染（登录后的弹窗表单、公开登记页共用同一套） ---------- */
+  function fieldHtml(f, value) {
+    var v = (value === null || value === undefined) ? '' : value;
+    var label = '<label>' + escapeHtml(f.label) + (f.required ? ' <span class="req">*</span>' : '') + '</label>';
+    var attrs = ' data-key="' + escapeHtml(f.key) + '"';
+
+    if (f.type === 'select') {
+      var opts = (f.options || []).map(function (o) {
+        return '<option value="' + escapeHtml(o) + '"' + (String(v) === String(o) ? ' selected' : '') + '>' + escapeHtml(o) + '</option>';
+      }).join('');
+      return '<div class="form-field">' + label +
+        '<select' + attrs + '><option value="">— 请选择 —</option>' + opts + '</select></div>';
+    }
+    if (f.type === 'textarea') {
+      return '<div class="form-field">' + label +
+        '<textarea' + attrs + ' rows="3">' + escapeHtml(v) + '</textarea></div>';
+    }
+    if (f.type === 'number') {
+      return '<div class="form-field">' + label +
+        '<input type="number"' + attrs + ' value="' + escapeHtml(v) + '"></div>';
+    }
+    var inputType = (f.type === 'date' || f.type === 'time') ? f.type : 'text';
+    return '<div class="form-field">' + label +
+      '<input type="' + inputType + '"' + attrs + ' value="' + escapeHtml(v) + '"></div>';
+  }
+
+  function fieldsHtml(model, values) {
+    values = values || {};
+    return model.fields.map(function (f) { return fieldHtml(f, values[f.key]); }).join('');
+  }
+
+  // 从表单容器里读出所有 [data-key] 字段（值为字符串，交给 Models.normalize 规整）
+  function readFields(root) {
+    var out = {};
+    root.querySelectorAll('[data-key]').forEach(function (el) {
+      out[el.getAttribute('data-key')] = el.value;
+    });
+    return out;
+  }
+
   /* ---------- toast ---------- */
   function toast(msg, type) {
     type = type || 'info';
@@ -100,6 +140,9 @@
     escapeHtml: escapeHtml,
     formatDate: formatDate,
     debounce: debounce,
+    fieldHtml: fieldHtml,
+    fieldsHtml: fieldsHtml,
+    readFields: readFields,
     toast: toast,
     openModal: openModal,
     closeModal: closeModal,

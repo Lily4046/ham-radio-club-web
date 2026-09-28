@@ -88,9 +88,17 @@
       '&_=' + Date.now())
       .then(function (d) {
         var text = decodeBase64(d.content);
+        var parsed;
+        try {
+          parsed = JSON.parse(text);
+        } catch (e) {
+          var perr = new Error('数据文件不是合法 JSON，无法解析：' + path);
+          perr.parseError = true;
+          throw perr;
+        }
         return {
           sha: d.sha,
-          data: JSON.parse(text),
+          data: parsed,
           exists: true,
           size: d.size
         };
@@ -114,6 +122,7 @@
       return res.json().then(function (data) {
         if (!res.ok) {
           var err = new Error((data && (data.message || data.error)) || ('HTTP ' + res.status));
+          err.proxyMessage = true;
           err.status = res.status;
           throw err;
         }
@@ -126,6 +135,9 @@
   }
 
   function writeFile(path, data, sha, message) {
+    if (HAM.Auth.isGuest()) {
+      return Promise.reject(new Error('游客（只读）模式无法写入数据。'));
+    }
     var cfg = HAM.CONFIG.get();
     var body = {
       message: message || ('更新 ' + path),
@@ -162,6 +174,7 @@
       return res.json().then(function (data) {
         if (!res.ok) {
           var err = new Error((data && (data.message || data.error)) || ('HTTP ' + res.status));
+          err.proxyMessage = true;
           err.status = res.status;
           throw err;
         }
@@ -172,6 +185,39 @@
 
   function getUser(token) {
     return request('GET', '/user', undefined, token);
+  }
+
+  // 公开登记：把一条记录交给云函数代写。
+  // 提交者没有 GitHub 令牌，也拿不到任何已有数据，函数只回执写入结果。
+  function submitPublicQsl(record, honeypot) {
+    var cfg = HAM.CONFIG.get();
+    if (!cfg.proxyUrl) {
+      return Promise.reject(new Error('未配置提交地址（config.js 里的 proxyUrl）。'));
+    }
+    return fetch(cfg.proxyUrl + '/submit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        record: record,
+        hp: honeypot || '',
+        owner: cfg.owner,
+        repo: cfg.repo,
+        branch: cfg.branch
+      })
+    }).then(function (res) {
+      return res.text().then(function (text) {
+        var data = {};
+        try { data = JSON.parse(text) || {}; } catch (e) { data = { __raw: text }; }
+        if (!res.ok || !data.ok) {
+          var msg = data.message || data.error;
+          if (!msg && data.__raw) msg = 'HTTP ' + res.status + '：' + String(data.__raw).trim().slice(0, 200);
+          var err = new Error(msg || ('提交失败（HTTP ' + res.status + '）'));
+          err.status = res.status;
+          throw err;
+        }
+        return data;
+      });
+    });
   }
 
   // 获取仓库元信息（用于连接诊断：是否存在、默认分支、是否私有、是否为空）
@@ -200,6 +246,7 @@
     writeFile: writeFile,
     listCommits: listCommits,
     getUser: getUser,
+    submitPublicQsl: submitPublicQsl,
     getRepo: getRepo,
     listMyRepos: listMyRepos,
     readFileStatus: readFileStatus,

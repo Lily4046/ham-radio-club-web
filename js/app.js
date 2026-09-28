@@ -6,7 +6,7 @@
 
   window.HAM = window.HAM || {};
 
-  var COLLECTIONS = ['lab', 'qsl', 'radio'];
+  var COLLECTIONS = ['lab', 'qsl', 'radio', 'publicQsl'];
   var currentCk = 'lab';
 
   /* ---------- 初始化 ---------- */
@@ -26,6 +26,13 @@
       return;
     }
 
+    // 公开 QSL 登记入口（?submit=1 或 #submit）：无需登录，且不加载任何已有数据
+    if (params.get('submit') === '1' || window.location.hash === '#submit') {
+      if (HAM.Submit) HAM.Submit.open();
+      else showLogin();
+      return;
+    }
+
     if (HAM.Auth.isAuthed()) {
       enterApp();
     } else {
@@ -34,6 +41,9 @@
   }
 
   function showLogin() {
+    // 从公开登记页返回时，也要把登记页收起来
+    var submitScreen = document.getElementById('submitScreen');
+    if (submitScreen) submitScreen.classList.add('hidden');
     document.getElementById('loginScreen').classList.remove('hidden');
     document.getElementById('appShell').classList.add('hidden');
   }
@@ -114,9 +124,12 @@
     HAM.UI.showLoading(true);
     HAM.Store.load(ck).then(function () {
       HAM.UI.showLoading(false);
+      // 加载期间用户可能又切了别的标签，丢弃过期结果，避免「高亮的标签和内容不一致」
+      if (currentCk !== ck) return;
       HAM.Views.renderCollection(ck);
     }).catch(function (e) {
       HAM.UI.showLoading(false);
+      if (currentCk !== ck) return;
       document.getElementById('viewContainer').innerHTML =
         '<div class="error-box">加载失败：' + HAM.UI.escapeHtml(e.message) + '</div>';
       HAM.UI.toast('加载失败：' + e.message, 'error');
@@ -172,6 +185,12 @@
       });
     });
 
+    // 公开 QSL 登记（无需登录，只能提交、看不到任何已有数据）
+    var submitBtn = document.getElementById('btnPublicSubmit');
+    if (submitBtn && HAM.Submit) {
+      submitBtn.addEventListener('click', function () { HAM.Submit.open(); });
+    }
+
     // 回车登录
     document.getElementById('loginToken').addEventListener('keydown', function (e) {
       if (e.key === 'Enter') document.getElementById('btnLoginToken').click();
@@ -190,7 +209,8 @@
     var modal = HAM.UI.openModal('⚙ 设置', '' +
       '<div class="settings-block">' +
         '<h4>当前身份</h4>' +
-        '<p>' + (u ? '<img class="avatar" src="' + HAM.UI.escapeHtml(u.avatar_url) + '" alt=""> ' + HAM.UI.escapeHtml(u.login) : '未登录') + '</p>' +
+        '<p>' + (u ? ((u.avatar_url ? '<img class="avatar" src="' + HAM.UI.escapeHtml(u.avatar_url) + '" alt=""> ' : '') +
+          HAM.UI.escapeHtml(u.login)) : '未登录') + '</p>' +
       '</div>' +
 
       '<div class="settings-block">' +
@@ -342,8 +362,17 @@
     // 游客登录：配置了 proxyUrl（腾讯云函数）才显示，读取走云函数只读代理
     var guestBtn = document.getElementById('btnLoginGuest');
     if (guestBtn) {
-      if (cfg.proxyUrl) guestBtn.classList.remove('hidden');
+      if (cfg.proxyUrl && cfg.guestRead !== false) guestBtn.classList.remove('hidden');
       else guestBtn.classList.add('hidden');
     }
+    // 公开 QSL 登记：配了云函数且未在 config.js 里关闭才显示
+    var submitBtn = document.getElementById('btnPublicSubmit');
+    if (submitBtn) {
+      if (cfg.proxyUrl && cfg.publicSubmit !== false) submitBtn.classList.remove('hidden');
+      else submitBtn.classList.add('hidden');
+    }
   }
+
+  // 供其他模块切换登录页（如公开登记页的「返回登录」）
+  HAM.App = { showLogin: showLogin };
 })();

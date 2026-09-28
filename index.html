@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>业余无线电社团协作管理系统</title>
   <link rel="icon" href="logo.png" type="image/png">
-  <link rel="stylesheet" href="css/styles.css?v=8">
+  <link rel="stylesheet" href="css/styles.css?v=14">
 </head>
 <body>
 
@@ -55,6 +55,9 @@
       <!-- 3. 游客登录 -->
       <button id="btnLoginGuest" class="btn btn-block btn-guest hidden">👀 游客登录（只读浏览）</button>
 
+      <!-- 4. 公开 QSL 登记（无需登录，只能提交，看不到任何已有数据） -->
+      <button id="btnPublicSubmit" class="btn btn-block hidden" type="button">📝 QSL 卡登记（无需登录）</button>
+
       <p id="loginError" class="error hidden"></p>
       <div id="oauthLoading" class="oauth-loading hidden">
         <span class="spinner"></span> 正在通过 GitHub 登录，请稍候…
@@ -62,17 +65,27 @@
     </div>
   </div>
 
+  <!-- 公开 QSL 登记页（无需登录；只渲染表单，不加载任何已有数据） -->
+  <div id="submitScreen" class="login-screen hidden">
+    <div class="login-card">
+      <img class="login-logo" src="logo.png" alt="社团 logo">
+      <h1>📝 QSL 卡登记</h1>
+      <div id="submitFormWrap"></div>
+    </div>
+  </div>
+
   <div id="modalRoot"></div>
   <div id="toastRoot"></div>
 
-  <!-- 脚本按顺序加载（依赖关系：config → auth → github → models → store → ui → views → app） -->
-  <script src="config.js?v=11"></script>
-  <script src="js/auth.js?v=11"></script>
-  <script src="js/github.js?v=11"></script>
-  <script src="js/models.js?v=11"></script>
-  <script src="js/store.js?v=11"></script>
-  <script src="js/ui.js?v=11"></script>
-  <script src="js/views.js?v=11"></script>
-  <script src="js/app.js?v=12"></script>
+  <!-- 脚本按顺序加载（依赖关系：config → auth → github → models → store → ui → views → submit → app） -->
+  <script src="config.js?v=14"></script>
+  <script src="js/auth.js?v=13"></script>
+  <script src="js/github.js?v=14"></script>
+  <script src="js/models.js?v=14"></script>
+  <script src="js/store.js?v=14"></script>
+  <script src="js/ui.js?v=14"></script>
+  <script src="js/views.js?v=14"></script>
+  <script src="js/submit.js?v=14"></script>
+  <script src="js/app.js?v=14"></script>
 </body>
 </html>

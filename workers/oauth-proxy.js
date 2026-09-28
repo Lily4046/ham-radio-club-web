@@ -13,6 +13,12 @@
  *   5. wrangler secret put GITHUB_CLIENT_SECRET
  *   6. wrangler deploy
  *   7. 把得到的 *.workers.dev 地址填到 config.js 的 proxyUrl。
+ *
+ * 可选加固（wrangler secret put / [vars]）：
+ *   ALLOWED_ORIGINS    允许调用的站点来源，逗号分隔（如 https://xxx.pages.dev）。
+ *                      设置后其他站点调用会返回 403；不设置则不校验（兼容旧行为）。
+ *   GITHUB_REDIRECT_URI  与 GitHub OAuth App 回调地址一致。设置后换令牌时会带上它，
+ *                      由 GitHub 校验，降低授权码被别的站点拿去兑换的风险。
  * ========================================================================= */
 export default {
   async fetch(request, env) {
@@ -21,6 +27,15 @@ export default {
     // CORS 预检
     if (request.method === 'OPTIONS') {
       return cors(new Response(null, { status: 204 }));
+    }
+
+    // 来源校验（可选）：配置了 ALLOWED_ORIGINS 才生效
+    const allowed = String(env.ALLOWED_ORIGINS || '').split(',').map((s) => s.trim()).filter(Boolean);
+    if (allowed.length) {
+      const origin = request.headers.get('Origin') || '';
+      if (allowed.indexOf(origin) === -1) {
+        return cors(json({ error: 'origin not allowed' }, 403));
+      }
     }
 
     if (url.pathname === '/exchange' && request.method === 'POST') {
@@ -39,6 +54,7 @@ export default {
           code: code,
           state: state || ''
         });
+        if (env.GITHUB_REDIRECT_URI) form.set('redirect_uri', env.GITHUB_REDIRECT_URI);
 
         const res = await fetch('https://github.com/login/oauth/access_token', {
           method: 'POST',
@@ -49,7 +65,14 @@ export default {
           body: form.toString()
         });
 
-        const data = await res.json();
+        // GitHub 出错时可能返回 HTML，直接 res.json() 会抛异常、掩盖真实原因
+        const text = await res.text();
+        let data;
+        try {
+          data = JSON.parse(text);
+        } catch (e) {
+          data = { error: 'bad_github_response', message: String(text).slice(0, 300) };
+        }
         return cors(json(data, res.status));
       } catch (e) {
         return cors(json({ error: 'internal error', description: e.message }, 500));

@@ -27,6 +27,7 @@
 
   // 判断是否为可重试的瞬时错误（网络抖动 / 限流 / 5xx）；确定性错误（404/403/422）不重试
   function isTransient(e) {
+    if (e && e.parseError) return false;
     return !e || !e.status || e.status === 429 || (e.status >= 500 && e.status < 600);
   }
 
@@ -42,7 +43,10 @@
 
   /* ---------- 错误信息友好化 ---------- */
   function friendly(e, path) {
-    if (!e || !e.status) return e;
+    if (!e) return e;
+    // 云函数代理已经返回了中文说明（例如「该路径未开放给只读代理」），直接用
+    if (e.proxyMessage) return e;
+    if (!e.status) return e;
     if (e.status === 401) {
       return new Error('认证失败（401）：访问令牌无效或已过期，请重新登录。');
     }
@@ -56,10 +60,20 @@
   }
 
   function ensure(ck) {
-    if (!cache[ck]) {
+    var entry = cache[ck];
+    if (!entry) {
       throw new Error('数据尚未加载，请先调用 load()。');
     }
-    return cache[ck];
+    if (entry.sig !== configSig()) {
+      throw new Error('仓库配置已变更，请重新加载数据后再操作。');
+    }
+    return entry;
+  }
+
+  // 仓库指纹：owner/repo/branch 一变，旧缓存立即失效（避免切了仓库还显示上一个仓库的数据）
+  function configSig() {
+    var cfg = HAM.CONFIG.get();
+    return [cfg.owner, cfg.repo, cfg.branch].join('/');
   }
 
   /* ---------- 加载 ---------- */
@@ -68,22 +82,30 @@
   function load(ck, force) {
     var cfg = HAM.CONFIG.get();
     var path = cfg.files[ck];
+    var sig = configSig();
 
     // 命中缓存时直接返回，避免每次切换标签都重新请求 GitHub（切换菜单慢的主因）
-    if (!force && cache[ck]) {
+    // 缓存只在「同一个 owner/repo/branch」下有效
+    if (!force && cache[ck] && cache[ck].sig === sig) {
       return Promise.resolve(cache[ck].data);
     }
 
-    // 去重：同一集合的并发加载共享同一个 Promise，避免预加载与点击切换重复请求
-    if (!force && inflight[ck]) {
-      return inflight[ck];
+    // 去重：同一集合 + 同一仓库的并发加载共享同一个 Promise，避免预加载与点击切换重复请求
+    if (!force && inflight[ck] && inflight[ck].sig === sig) {
+      return inflight[ck].promise;
     }
 
     var p = retry(function () { return HAM.GitHub.readFile(path); }, 1).then(function (r) {
       if (!r.exists) {
+        // 游客只读：没有写权限，直接用空数据渲染，不做「自动建文件」
+        if (HAM.Auth.isGuest()) {
+          var emptyGuest = { items: [] };
+          cache[ck] = { data: emptyGuest, sha: null, base: [], sig: sig };
+          return emptyGuest;
+        }
         var empty = { items: [] };
         return retry(function () { return HAM.GitHub.writeFile(path, empty, null, '初始化 ' + path); }, 2).then(function (sha) {
-          cache[ck] = { data: empty, sha: sha, base: [] };
+          cache[ck] = { data: empty, sha: sha, base: [], sig: sig };
           return empty;
         }).catch(function (e) {
           var hint = '';
@@ -105,31 +127,42 @@
       if (!data || !Array.isArray(data.items)) {
         data = { items: [] };
       }
-      cache[ck] = { data: data, sha: r.sha, base: deepClone(data.items) };
+      cache[ck] = { data: data, sha: r.sha, base: deepClone(data.items), sig: sig };
       return data;
     }).catch(function (e) {
       throw friendly(e, path);
     });
 
     if (!force) {
-      inflight[ck] = p;
-      p.then(function () { delete inflight[ck]; }, function () { delete inflight[ck]; });
+      inflight[ck] = { sig: sig, promise: p };
+      var clearInflight = function () {
+        if (inflight[ck] && inflight[ck].promise === p) delete inflight[ck];
+      };
+      p.then(clearInflight, clearInflight);
     }
     return p;
   }
 
   function getCached(ck) {
-    return cache[ck] ? cache[ck].data : null;
+    var entry = cache[ck];
+    if (!entry || entry.sig !== configSig()) return null;
+    return entry.data;
   }
 
   // 是否已缓存（用于切换标签时跳过网络请求）
   function isCached(ck) {
-    return !!cache[ck];
+    return !!getCached(ck);
   }
 
   // 强制重新从 GitHub 拉取（手动刷新 / 查看他人改动）
   function refresh(ck) {
     return load(ck, true);
+  }
+
+  // 清空所有内存缓存（切换账号 / 手动重置时使用）
+  function reset() {
+    cache = {};
+    inflight = {};
   }
 
   /* ---------- 按 id 的三方合并 ---------- */
@@ -238,24 +271,38 @@
   }
 
   /* ---------- 增删改 ---------- */
-  function addItem(ck, item, message) {
+  // 统一「先改本地 → 提交 → 失败回滚」：避免写入失败后，内存里残留一条其实没保存成功的记录
+  function mutate(ck, apply, message) {
     var entry = ensure(ck);
-    entry.data.items.push(item);
-    return commit(ck, message || '新增条目').then(function () { return item; });
+    var snapshot = deepClone(entry.data.items);
+    var value = apply(entry.data.items);
+    return commit(ck, message).then(function () { return value; }, function (e) {
+      entry.data.items = snapshot;
+      throw e;
+    });
+  }
+
+  function addItem(ck, item, message) {
+    return mutate(ck, function (items) { items.push(item); return item; }, message || '新增条目');
   }
 
   function updateItem(ck, id, patch, message) {
     var entry = ensure(ck);
     var target = entry.data.items.find(function (x) { return x.id === id; });
     if (!target) throw new Error('条目不存在（可能已被删除）。');
-    Object.keys(patch).forEach(function (k) { target[k] = patch[k]; });
-    return commit(ck, message || '更新条目').then(function () { return target; });
+    return mutate(ck, function () {
+      Object.keys(patch).forEach(function (k) { target[k] = patch[k]; });
+      return target;
+    }, message || '更新条目');
   }
 
   function removeItem(ck, id, message) {
-    var entry = ensure(ck);
-    entry.data.items = entry.data.items.filter(function (x) { return x.id !== id; });
-    return commit(ck, message || '删除条目');
+    return mutate(ck, function (items) {
+      for (var i = items.length - 1; i >= 0; i--) {
+        if (items[i].id === id) items.splice(i, 1);
+      }
+      return true;
+    }, message || '删除条目');
   }
 
   HAM.Store = {
@@ -263,6 +310,7 @@
     getCached: getCached,
     isCached: isCached,
     refresh: refresh,
+    reset: reset,
     addItem: addItem,
     updateItem: updateItem,
     removeItem: removeItem,

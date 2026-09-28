@@ -48,11 +48,17 @@
   function isAdmin() {
     var cfg = HAM.CONFIG.get();
     var u = getUser();
-    return !!(u && cfg.adminLogin && u.login === cfg.adminLogin);
+    // GitHub 用户名不区分大小写，比较时统一小写
+    return !!(u && cfg.adminLogin && u.login &&
+      String(u.login).toLowerCase() === String(cfg.adminLogin).toLowerCase());
   }
 
   /* ---------- PAT 登录 ---------- */
   function loginWithToken(token) {
+    token = String(token || '').trim();
+    if (!token) {
+      return Promise.reject(new Error('访问令牌不能为空。'));
+    }
     return HAM.GitHub.getUser(token).then(function (user) {
       state = { mode: 'pat', token: token, user: user };
       save();

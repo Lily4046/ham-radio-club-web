@@ -522,6 +522,19 @@ body.modal-open { overflow: hidden; }
   line-height: 1.5;
 }
 
+/* ---------- 公开 QSL 登记页 ---------- */
+.done-box {
+  padding: 14px 16px;
+  margin-bottom: 16px;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: var(--radius);
+  color: #166534;
+  font-size: 14px;
+}
+.done-box p { margin: 0 0 6px; }
+.done-box p:last-child { margin-bottom: 0; }
+
 @media (max-width: 640px) {
   .filter-select { flex: 1 1 auto; max-width: none; }
 }

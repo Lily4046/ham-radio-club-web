@@ -1,14 +1,19 @@
 # 📡 业余无线电社团协作管理系统
 
-一个**纯前端、零后端**的在线协作管理系统，为业余无线电社团管理三类数据：
+一个**纯前端、零后端**的在线协作管理系统，为业余无线电社团管理四类数据：
 
-| 模块 | 图标 | 数据文件 |
-|------|------|----------|
-| 实验室物品 | 🧪 | `data/lab-items.json` |
-| QSL 卡 | 📮 | `data/qsl-cards.json` |
-| 电台设备 | 📻 | `data/radio-equipment.json` |
+| 模块 | 图标 | 数据文件 | 谁在用 |
+|------|------|----------|--------|
+| 实验室物品 | 🧪 | `data/lab-items.json` | 登录成员 |
+| QSL 卡 | 📮 | `data/qsl-cards.json` | 登录成员 |
+| 电台设备 | 📻 | `data/radio-equipment.json` | 登录成员 |
+| QSL 登记（公开提交） | 📝 | `data/qsl-public.json` | 没有 GitHub 权限的人 / 访客提交，成员查看 |
 
 所有数据以 JSON 文件形式存储在**私有 GitHub 仓库**中，通过 **GitHub REST API** 读写；前端是静态页面，浏览器打开即可使用，支持社团成员在线增删改查、搜索、变更记录查看与导出。
+
+前三类数据需要通行令牌（PAT / OAuth）才能读写；第四类「QSL 登记」是给**没有权限的人**用的：
+他们不需要登录，只能提交一张表，提交内容由云函数代写进 `data/qsl-public.json`，
+且整个提交页面**不加载、不显示任何已有数据**。
 
 ---
 
@@ -23,20 +28,23 @@ ham-radio-club-system/
 ├── js/
 │   ├── auth.js             # 认证层（PAT + OAuth）
 │   ├── github.js           # GitHub API 封装（读写/历史）
-│   ├── models.js           # 三类数据的字段定义与校验
+│   ├── models.js           # 各类数据的字段定义与校验
 │   ├── store.js            # 数据仓库层（增删改 + 冲突合并）
 │   ├── ui.js               # 通用 UI（toast/modal/确认框）
 │   ├── views.js            # 视图层（表格/表单/历史/导出）
+│   ├── submit.js           # 公开 QSL 登记页（无需登录，只提交不读取）
 │   └── app.js              # 应用入口（登录/导航/设置）
 ├── workers/
 │   ├── oauth-proxy.js      # OAuth 令牌交换代理（Cloudflare Worker）
 │   └── wrangler.toml       # Worker 配置
 ├── scripts/
-│   └── init-repo.mjs       # Node 脚本：上传种子数据到仓库
-├── data/                   # 三类数据的种子（示例）数据
+│   ├── init-repo.mjs       # Node 脚本：上传种子数据到仓库
+│   └── selftest.mjs        # Node 自检：跑 models/store/云函数校验逻辑，不联网
+├── data/                   # 各类数据的种子（示例）数据
 │   ├── lab-items.json
 │   ├── qsl-cards.json
-│   └── radio-equipment.json
+│   ├── radio-equipment.json
+│   └── qsl-public.json
 ├── _headers                # 边缘平台安全头（可选）
 └── .gitignore
 ```
@@ -164,6 +172,32 @@ proxyUrl: 'https://xxx.workers.dev'
 
 ---
 
+## 公开 QSL 登记（无需登录）
+
+除了上面两种登录方式，还有一条给「没有 GitHub 权限的人」用的、**不需要登录**的入口：
+
+1. 打开站点首页，点「📝 QSL 卡登记（无需登录）」；也可以直接把
+   `https://你的站点/?submit=1`（或 `#submit`）发给对方。
+2. 对方看到的只有一张表单：对方呼号、本台呼号、波段、模式、通联日期、时间 (UTC)、信号报告、提交人、备注。
+3. 提交后前端调用云函数 `POST /submit`，由云函数用环境变量里的
+   `GITHUB_SUBMIT_TOKEN` 把这条记录追加到 `data/qsl-public.json`，只回一句回执。
+   **提交页不加载任何已有数据，回执里也不含已有数据。**
+4. 登录成员（PAT / OAuth）会在标签页里看到第 4 个分类「📝 QSL 登记」，可查看、修改、删除这些提交。
+
+几个可调项：
+
+| 位置 | 配置 | 作用 |
+|------|------|------|
+| `config.js` | `publicSubmit: false` | 首页不显示登记入口 |
+| `config.js` | `guestRead: false` | 首页不显示「游客登录（只读浏览）」 |
+| 云函数环境变量 | `PUBLIC_QSL_PATH` | 公开登记写到哪个文件（默认 `data/qsl-public.json`，只能填一个） |
+| 云函数环境变量 | `PUBLIC_READ_PATHS` | 只读代理允许读哪些文件；填 `data/qsl-public.json` 即「未授权的人只能读公开登记文件」，填 `*` 放开全部，不填＝保持旧行为 |
+
+> 云函数的部署与这三个环境变量见 [tencent-scf/README.md](tencent-scf/README.md)。
+> 注意：公开登记写入用的是云函数里的令牌，前端和提交者都接触不到任何令牌。
+
+---
+
 ## 数据文件格式
 
 每个文件是一个 JSON 对象，内含 `items` 数组：
@@ -206,6 +240,7 @@ node scripts/init-repo.mjs
 ## 主要功能
 
 - ✅ 三类数据（实验室物品 / QSL 卡 / 电台设备）的**增、删、改、查**
+- ✅ 第四类「QSL 登记」：**没有 GitHub 权限的人无需登录即可提交**，成员在标签页里查看、修改、删除（单独存 `data/qsl-public.json`）
 - ✅ 关键词**搜索**（匹配任意字段）
 - ✅ 表格**筛选**（按下拉字段过滤）与**排序**（点击表头升降序）
 - ✅ QSL 卡**查重**（保存时按「呼号 + 日期 + 波段 + 模式」提示疑似重复）
@@ -225,6 +260,23 @@ node scripts/init-repo.mjs
 3. **私有仓库**：强烈建议数据仓库保持 **Private**；免费账户使用 GitHub Pages 时注意 Private Pages 需 Pro。
 4. **OAuth secret 不入前端**：`client_secret` 只存放在 Worker 的环境变量中。
 5. 定期在 GitHub 设置中审查并回收不再使用的令牌。
+6. **公开登记是唯一的对外写入口**：它由云函数用 `GITHUB_SUBMIT_TOKEN` 代写，只允许写
+   `PUBLIC_QSL_PATH` 这一个文件，只接受白名单字段并做了长度截断、限流和蜜罐；
+   前端与提交者全程拿不到令牌，也读不到任何已有数据。
+7. **只想给未授权者看公开登记、不给看全库**：给云函数配 `PUBLIC_READ_PATHS=data/qsl-public.json`，
+   或在 `config.js` 里把 `guestRead` 设为 `false` 关掉游客只读入口。
+
+---
+
+## 自检
+
+改完 `js/models.js` / `js/store.js` 后，可以跑一遍不需要网络、也不依赖浏览器的自检：
+
+```bash
+node scripts/selftest.mjs
+```
+
+覆盖：字段规整与校验、切换 owner/repo/branch 后缓存失效、游客只读不建文件、写入失败回滚、409 冲突三方合并、删除记录。
 
 ---
 
