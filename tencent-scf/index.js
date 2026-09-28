@@ -148,7 +148,7 @@ function repoParams(body) {
 function publicRepoParams(body) {
   return {
     owner: process.env.PUBLIC_REPO_OWNER || body.owner || 'Lily4046',
-    repo: process.env.PUBLIC_REPO_NAME || body.repo || 'ham-radio-club-public',
+    repo: process.env.PUBLIC_REPO_NAME || body.repo || 'ham-radio-club-qsl',
     branch: process.env.PUBLIC_REPO_BRANCH || body.branch || 'main'
   };
 }
