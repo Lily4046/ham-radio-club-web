@@ -37,9 +37,19 @@
     guestRead: true,
 
     // 公开 QSL 登记：没有 GitHub 权限的人（或访客）无需登录即可提交 QSL 卡记录，
-    // 提交内容写入 files.publicQsl，且提交页不加载、不显示任何已有数据。
-    // 提交由云函数用环境变量 GITHUB_SUBMIT_TOKEN 代写，前端不存任何令牌。
+    // 提交页不加载、不显示任何已有数据，提交由云函数用环境变量里的令牌代写。
+    // 数据落在下面这个「独立仓库」里（不是主数据库仓库），从根上隔离：
+    // 写入用的令牌只授权这一个仓库，刷数据也碰不到主数据库。
     publicSubmit: true,
+
+    // 公开登记专用仓库（请单独建一个仓库，例如 ham-radio-club-public）
+    // - 建议设为 Public：里面只放待核对的登记，本身就是要给人填的；
+    // - 云函数首次提交时会自动创建 data/qsl-public.json，不用手动建。
+    publicRepo: {
+      owner: 'Lily4046',
+      repo: 'ham-radio-club-public',
+      branch: 'main'
+    },
 
     // 数据文件在仓库中的相对路径（一般无需修改）
     files: {
@@ -109,9 +119,37 @@
     localStorage.removeItem(LS_KEY);
   }
 
+  // 每个集合实际所在的仓库/分支/文件：publicQsl 走独立仓库，其余走主数据库。
+  // 返回 { ck, owner, repo, branch, path }
+  function repoFor(ck) {
+    var cfg = getConfig();
+    var main = {
+      owner: cfg.owner,
+      repo: cfg.repo,
+      branch: cfg.branch
+    };
+    var target = main;
+    if (ck === 'publicQsl' && cfg.publicRepo && cfg.publicRepo.repo) {
+      target = {
+        owner: cfg.publicRepo.owner || cfg.owner,
+        repo: cfg.publicRepo.repo,
+        branch: cfg.publicRepo.branch || cfg.branch
+      };
+    }
+    return {
+      ck: ck,
+      owner: target.owner,
+      repo: target.repo,
+      branch: target.branch || 'main',
+      path: cfg.files[ck],
+      isPublicRepo: target !== main
+    };
+  }
+
   HAM.CONFIG = {
     DEFAULT: DEFAULT_CONFIG,
     get: getConfig,
+    repoFor: repoFor,
     setOverrides: setOverrides,
     resetOverrides: resetOverrides
   };

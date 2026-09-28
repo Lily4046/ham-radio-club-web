@@ -158,11 +158,32 @@
     return out;
   }
 
+  // 公开登记 → QSL 卡：字段映射 + 溯源信息。
+  // sourceId 记录来源登记 id，用于判断「是否已并入」，避免重复导入。
+  function toQslFromPublic(pub, login) {
+    var rec = newItem('qsl');
+    ['callsign', 'ourCallsign', 'band', 'mode', 'date', 'timeUtc', 'rst'].forEach(function (k) {
+      if (pub[k] !== undefined && pub[k] !== null) rec[k] = pub[k];
+    });
+    rec.cardStatus = '未收到';
+    rec.replied = '未回信';
+    rec.senderName = pub.submitter || '';
+    var trace = '公开登记：' + (pub.submitter || '—') + ' 于 ' + (pub.submittedAt || '—') + ' 提交';
+    rec.notes = pub.notes ? (pub.notes + '（' + trace + '）') : trace;
+    rec.sourceId = pub.id;
+    rec.importedAt = new Date().toISOString();
+    rec.importedBy = login || '';
+    rec.updatedAt = rec.importedAt;
+    rec.updatedBy = login || '公开登记并入';
+    return rec;
+  }
+
   HAM.Models = {
     MODELS: MODELS,
     genId: genId,
     newItem: newItem,
     normalize: normalize,
+    toQslFromPublic: toQslFromPublic,
     validate: validate
   };
 })();

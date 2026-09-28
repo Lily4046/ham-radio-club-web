@@ -14,6 +14,21 @@
 
   var API_BASE = 'https://api.github.com';
 
+  // 仓库坐标：不传 target 就用主数据仓库（config.js 的 owner/repo/branch）
+  function repoCoords(target) {
+    var cfg = HAM.CONFIG.get();
+    return {
+      owner: (target && target.owner) || cfg.owner,
+      repo: (target && target.repo) || cfg.repo,
+      branch: (target && target.branch) || cfg.branch
+    };
+  }
+
+  function contentsUrl(path, target) {
+    var c = repoCoords(target);
+    return '/repos/' + encodeURIComponent(c.owner) + '/' + encodeURIComponent(c.repo) + '/contents/' + path;
+  }
+
   /* ---------- 基础请求 ---------- */
   function request(method, path, body, tokenOverride) {
     var token = tokenOverride || HAM.Auth.getToken();
@@ -77,14 +92,14 @@
   }
 
   /* ---------- 高层 API ---------- */
-  function readFile(path) {
+  function readFile(path, target) {
     if (HAM.Auth.isGuest()) {
-      return readFileViaProxy(path);
+      return readFileViaProxy(path, target);
     }
-    var cfg = HAM.CONFIG.get();
+    var coords = repoCoords(target);
     // 加一个随时间变化的缓存穿透参数，避免 GitHub CDN 在刚写入后返回旧内容
-    return request('GET', '/repos/' + encodeURIComponent(cfg.owner) + '/' + encodeURIComponent(cfg.repo) +
-      '/contents/' + path + '?ref=' + encodeURIComponent(cfg.branch) +
+    return request('GET', contentsUrl(path, target) +
+      '?ref=' + encodeURIComponent(coords.branch) +
       '&_=' + Date.now())
       .then(function (d) {
         var text = decodeBase64(d.content);
@@ -112,12 +127,13 @@
   }
 
   // 游客只读：通过腾讯云函数代理读取数据文件（令牌存在云函数环境变量里）
-  function readFileViaProxy(path) {
+  function readFileViaProxy(path, target) {
     var cfg = HAM.CONFIG.get();
+    var coords = repoCoords(target);
     return fetch(cfg.proxyUrl + '/read', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ path: path, owner: cfg.owner, repo: cfg.repo, branch: cfg.branch })
+      body: JSON.stringify({ path: path, owner: coords.owner, repo: coords.repo, branch: coords.branch })
     }).then(function (res) {
       return res.json().then(function (data) {
         if (!res.ok) {
@@ -134,42 +150,42 @@
     });
   }
 
-  function writeFile(path, data, sha, message) {
+  function writeFile(path, data, sha, message, target) {
     if (HAM.Auth.isGuest()) {
       return Promise.reject(new Error('游客（只读）模式无法写入数据。'));
     }
-    var cfg = HAM.CONFIG.get();
+    var coords = repoCoords(target);
     var body = {
       message: message || ('更新 ' + path),
       content: encodeBase64(JSON.stringify(data, null, 2)),
-      branch: cfg.branch
+      branch: coords.branch
     };
     if (sha) body.sha = sha;
 
-    return request('PUT', '/repos/' + encodeURIComponent(cfg.owner) + '/' + encodeURIComponent(cfg.repo) +
-      '/contents/' + path, body)
+    return request('PUT', contentsUrl(path, target), body)
       .then(function (d) {
         // 返回新 sha，供后续写入使用
         return d && d.content && d.content.sha ? d.content.sha : (d && d.commit && d.commit.sha);
       });
   }
 
-  function listCommits(path) {
+  function listCommits(path, target) {
     if (HAM.Auth.isGuest()) {
-      return listCommitsViaProxy(path);
+      return listCommitsViaProxy(path, target);
     }
-    var cfg = HAM.CONFIG.get();
-    return request('GET', '/repos/' + encodeURIComponent(cfg.owner) + '/' + encodeURIComponent(cfg.repo) +
-      '/commits?path=' + path + '&sha=' + encodeURIComponent(cfg.branch) + '&per_page=50');
+    var coords = repoCoords(target);
+    return request('GET', '/repos/' + encodeURIComponent(coords.owner) + '/' + encodeURIComponent(coords.repo) +
+      '/commits?path=' + path + '&sha=' + encodeURIComponent(coords.branch) + '&per_page=50');
   }
 
   // 游客只读：通过腾讯云函数代理读取提交历史
-  function listCommitsViaProxy(path) {
+  function listCommitsViaProxy(path, target) {
     var cfg = HAM.CONFIG.get();
+    var coords = repoCoords(target);
     return fetch(cfg.proxyUrl + '/commits', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ path: path, owner: cfg.owner, repo: cfg.repo, branch: cfg.branch })
+      body: JSON.stringify({ path: path, owner: coords.owner, repo: coords.repo, branch: coords.branch })
     }).then(function (res) {
       return res.json().then(function (data) {
         if (!res.ok) {
@@ -194,15 +210,17 @@
     if (!cfg.proxyUrl) {
       return Promise.reject(new Error('未配置提交地址（config.js 里的 proxyUrl）。'));
     }
+    // 目标是「公开登记专用仓库」，不是主数据库仓库
+    var pub = HAM.CONFIG.repoFor('publicQsl');
     return fetch(cfg.proxyUrl + '/submit', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         record: record,
         hp: honeypot || '',
-        owner: cfg.owner,
-        repo: cfg.repo,
-        branch: cfg.branch
+        owner: pub.owner,
+        repo: pub.repo,
+        branch: pub.branch
       })
     }).then(function (res) {
       return res.text().then(function (text) {
@@ -232,10 +250,9 @@
   }
 
   // 测试对某路径的读取状态码（区分「文件不存在」与「无 Contents 权限」）
-  function readFileStatus(path) {
-    var cfg = HAM.CONFIG.get();
-    return request('GET', '/repos/' + encodeURIComponent(cfg.owner) + '/' + encodeURIComponent(cfg.repo) +
-      '/contents/' + path + '?ref=' + encodeURIComponent(cfg.branch))
+  function readFileStatus(path, target) {
+    var coords = repoCoords(target);
+    return request('GET', contentsUrl(path, target) + '?ref=' + encodeURIComponent(coords.branch))
       .then(function () { return 200; })
       .catch(function (e) { return e.status || 0; });
   }

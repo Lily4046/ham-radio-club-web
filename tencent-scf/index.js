@@ -147,6 +147,18 @@ function repoParams(body) {
   };
 }
 
+// 公开登记写入目标：**独立仓库**（和主数据库分开）。
+// 环境变量优先；前端传的坐标只在没配环境变量时兜底。
+// 真正的硬边界是 GITHUB_SUBMIT_TOKEN 的授权范围：令牌只授权这一个仓库，
+// 所以就算函数被滥用，也写不进主数据库。
+function publicRepoParams(body) {
+  return {
+    owner: process.env.PUBLIC_REPO_OWNER || body.owner || 'Lily4046',
+    repo: process.env.PUBLIC_REPO_NAME || body.repo || 'ham-radio-club-public',
+    branch: process.env.PUBLIC_REPO_BRANCH || body.branch || 'main'
+  };
+}
+
 // 游客只读代理允许读取的路径：
 //   未配置 → 保持旧行为（三类数据文件都能读）
 //   "*"    → 显式放开全部
@@ -305,7 +317,8 @@ async function handleSubmit(body, event) {
     return jsonResp(429, { error: 'too many requests', message: '提交过于频繁，请稍后再试。' });
   }
 
-  const { owner, repo, branch } = repoParams(body);
+  // 只写「公开登记独立仓库」，绝不碰主数据库仓库
+  const { owner, repo, branch } = publicRepoParams(body);
   const filePath = process.env.PUBLIC_QSL_PATH || 'data/qsl-public.json';
   if (!isValidPath(filePath)) return jsonResp(500, { error: 'invalid PUBLIC_QSL_PATH' });
 
@@ -430,3 +443,4 @@ exports.main_handler = async function (event) {
 // 供本地自检使用（scripts/selftest.mjs），云函数运行时不会调用
 exports._sanitizeSubmit = sanitizeSubmit;
 exports._readAllowed = readAllowed;
+exports._publicRepoParams = publicRepoParams;

@@ -85,6 +85,7 @@
           '<input type="search" id="searchInput" class="search" placeholder="搜索…">' +
           '<button class="btn btn-ghost" id="btnRefresh">↻ 刷新</button>' +
           (HAM.Auth.isAdmin() ? '<button class="btn btn-ghost" id="btnHistory">🕘 变更记录</button>' : '') +
+          (isGuest || ck !== 'publicQsl' ? '' : '<button class="btn btn-ghost" id="btnImport">📥 并入 QSL 卡</button>') +
           '<button class="btn btn-ghost" id="btnExport">⬇ 导出</button>' +
           (isGuest ? '' : '<button class="btn btn-primary" id="btnAdd">＋ 新增</button>') +
         '</div>' +
@@ -191,6 +192,8 @@
     if (addBtn) addBtn.addEventListener('click', function () { showForm(ck, null); });
     var historyBtn = document.getElementById('btnHistory');
     if (historyBtn) historyBtn.addEventListener('click', function () { showHistory(ck); });
+    var importBtn = document.getElementById('btnImport');
+    if (importBtn) importBtn.addEventListener('click', function () { importPublicQsl(); });
     document.getElementById('btnExport').addEventListener('click', function () { exportData(ck); });
   }
 
@@ -453,10 +456,9 @@
 
   /* ---------- 变更记录 ---------- */
   function showHistory(ck) {
-    var cfg = HAM.CONFIG.get();
-    var path = cfg.files[ck];
+    var t = HAM.CONFIG.repoFor(ck);
     HAM.UI.showLoading(true);
-    HAM.GitHub.listCommits(path).then(function (commits) {
+    HAM.GitHub.listCommits(t.path, t).then(function (commits) {
       HAM.UI.showLoading(false);
       var list = (commits || []).map(function (c) {
         var sha = (c.sha || '').slice(0, 7);
@@ -469,11 +471,58 @@
           '<div class="commit-meta">' + HAM.UI.escapeHtml(author) + ' · ' + HAM.UI.escapeHtml(date) + ' · <code>' + sha + '</code></div>' +
           '</li>';
       }).join('');
-      HAM.UI.openModal('变更记录 · ' + HAM.Models.MODELS[ck].title, '' +
+      HAM.UI.openModal('变更记录 · ' + HAM.Models.MODELS[ck].title +
+        (t.isPublicRepo ? '（登记库 ' + t.owner + '/' + t.repo + '）' : ''), '' +
         (list ? '<ul class="commit-list">' + list + '</ul>' : '<p class="muted">暂无提交记录。</p>'));
     }).catch(function (e) {
       HAM.UI.showLoading(false);
       HAM.UI.toast('获取记录失败：' + e.message, 'error');
+    });
+  }
+
+  /* ---------- 公开登记 → 并入 QSL 卡 ---------- */
+  function importPublicQsl() {
+    var pending = HAM.Store.getCached('publicQsl');
+    var items = (pending && pending.items) || [];
+    if (!items.length) {
+      HAM.UI.toast('公开登记库是空的，没有需要并入的记录。', 'info');
+      return;
+    }
+    var user = HAM.Auth.getUser();
+    var login = user ? user.login : '';
+
+    HAM.UI.confirmDialog('确定把公开登记库的 ' + items.length +
+      ' 条记录并入「QSL 卡」，并从登记库删除吗？').then(function (ok) {
+      if (!ok) return;
+      HAM.UI.showLoading(true);
+      // 先加载主库：并入时要靠 sourceId 判断哪些之前已经并入过
+      return HAM.Store.load('qsl').then(function () {
+        var main = HAM.Store.getCached('qsl');
+        var imported = {};
+        ((main && main.items) || []).forEach(function (it) {
+          if (it.sourceId) imported[it.sourceId] = true;
+        });
+        var fresh = items.filter(function (it) { return !imported[it.id]; });
+        var records = fresh.map(function (it) { return HAM.Models.toQslFromPublic(it, login); });
+        var allIds = items.map(function (it) { return it.id; });
+
+        return HAM.Store.addMany('qsl', records, '并入公开登记 ' + records.length + ' 条')
+          .then(function () {
+            // 主库写成功后再清理登记库；这一步失败也不会重复并入（有 sourceId 兜底）
+            return HAM.Store.removeMany('publicQsl', allIds, '公开登记已并入 QSL 卡');
+          })
+          .then(function () {
+            HAM.UI.showLoading(false);
+            renderRows();
+            updateCount();
+            var extra = items.length - records.length;
+            HAM.UI.toast('已并入 ' + records.length + ' 条' +
+              (extra ? '（另有 ' + extra + ' 条之前已并入，一并清理）' : ''), 'success');
+          });
+      }).catch(function (e) {
+        HAM.UI.showLoading(false);
+        HAM.UI.toast('并入失败：' + e.message, 'error');
+      });
     });
   }
 

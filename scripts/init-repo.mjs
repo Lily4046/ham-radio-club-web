@@ -30,8 +30,7 @@ const BRANCH = process.env.REPO_BRANCH || 'main';
 const FILES = [
   'data/lab-items.json',
   'data/qsl-cards.json',
-  'data/radio-equipment.json',
-  'data/qsl-public.json'
+  'data/radio-equipment.json'
 ];
 
 if (!TOKEN || !OWNER || !REPO) {

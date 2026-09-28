@@ -7,13 +7,17 @@
 | 实验室物品 | 🧪 | `data/lab-items.json` | 登录成员 |
 | QSL 卡 | 📮 | `data/qsl-cards.json` | 登录成员 |
 | 电台设备 | 📻 | `data/radio-equipment.json` | 登录成员 |
-| QSL 登记（公开提交） | 📝 | `data/qsl-public.json` | 没有 GitHub 权限的人 / 访客提交，成员查看 |
+| QSL 登记（公开提交） | 📝 | **独立仓库**里的 `data/qsl-public.json` | 没有 GitHub 权限的人 / 访客提交，成员核对后并入 QSL 卡 |
 
 所有数据以 JSON 文件形式存储在**私有 GitHub 仓库**中，通过 **GitHub REST API** 读写；前端是静态页面，浏览器打开即可使用，支持社团成员在线增删改查、搜索、变更记录查看与导出。
 
-前三类数据需要通行令牌（PAT / OAuth）才能读写；第四类「QSL 登记」是给**没有权限的人**用的：
-他们不需要登录，只能提交一张表，提交内容由云函数代写进 `data/qsl-public.json`，
-且整个提交页面**不加载、不显示任何已有数据**。
+前三类数据需要通行令牌（PAT / OAuth）才能读写，放在主数据仓库里。
+第四类「QSL 登记」是给**没有权限的人**用的：他们不需要登录，只能提交一张表，
+提交内容由云函数写进**另一个独立仓库**（`config.js` 的 `publicRepo`，例如 `ham-radio-club-public`），
+页面**不加载、不显示任何已有数据**。
+
+这样隔离的原因：写入口用的令牌只授权那一个仓库，**无权限的人怎么刷都碰不到主数据库**；
+社团成员核对后在界面上一键「并入 QSL 卡」，数据才会进主库，登记库里对应记录随即删除。
 
 ---
 
@@ -43,8 +47,7 @@ ham-radio-club-system/
 ├── data/                   # 各类数据的种子（示例）数据
 │   ├── lab-items.json
 │   ├── qsl-cards.json
-│   ├── radio-equipment.json
-│   └── qsl-public.json
+│   └── radio-equipment.json
 ├── _headers                # 边缘平台安全头（可选）
 └── .gitignore
 ```
@@ -180,9 +183,24 @@ proxyUrl: 'https://xxx.workers.dev'
    `https://你的站点/?submit=1`（或 `#submit`）发给对方。
 2. 对方看到的只有一张表单：对方呼号、本台呼号、波段、模式、通联日期、时间 (UTC)、信号报告、提交人、备注。
 3. 提交后前端调用云函数 `POST /submit`，由云函数用环境变量里的
-   `GITHUB_SUBMIT_TOKEN` 把这条记录追加到 `data/qsl-public.json`，只回一句回执。
+   `GITHUB_SUBMIT_TOKEN` 把这条记录追加到**独立仓库**的 `data/qsl-public.json`，只回一句回执。
    **提交页不加载任何已有数据，回执里也不含已有数据。**
 4. 登录成员（PAT / OAuth）会在标签页里看到第 4 个分类「📝 QSL 登记」，可查看、修改、删除这些提交。
+5. 核对无误后，在那一页点「📥 并入 QSL 卡」：记录会被写进主数据库的 `data/qsl-cards.json`，
+   同时从登记库里删除。靠 `sourceId` 标记去重，点两次也不会重复并入。
+
+### 独立仓库怎么建（只做一次）
+
+1. 新建一个仓库，例如 `ham-radio-club-public`（建议 **Public**，里面只放待核对的登记）：
+   - 不需要手动建文件，云函数第一次收到提交时会自动创建 `data/qsl-public.json`。
+2. 在 `config.js` 里填好：
+   ```js
+   publicRepo: { owner: '你的用户名', repo: 'ham-radio-club-public', branch: 'main' }
+   ```
+3. 给这个仓库单独生成一个 fine-grained 令牌（Contents: Read and write），
+   只放进云函数的 `GITHUB_SUBMIT_TOKEN`，**不要**用主数据库的令牌。
+   这样即使写入口被滥用，能改的也只有登记库，主数据库完全不受影响。
+4. 成员要能看到/清理登记库：把自己加入这个仓库的协作者，或在云函数里配只读代理。
 
 几个可调项：
 
@@ -190,10 +208,12 @@ proxyUrl: 'https://xxx.workers.dev'
 |------|------|------|
 | `config.js` | `publicSubmit: false` | 首页不显示登记入口 |
 | `config.js` | `guestRead: false` | 首页不显示「游客登录（只读浏览）」 |
+| `config.js` | `publicRepo` | 公开登记落在哪个仓库（和主数据库 `owner`/`repo` 分开） |
+| 云函数环境变量 | `PUBLIC_REPO_OWNER` / `PUBLIC_REPO_NAME` / `PUBLIC_REPO_BRANCH` | 钉死公开登记写入的仓库，前端传什么都会被忽略 |
 | 云函数环境变量 | `PUBLIC_QSL_PATH` | 公开登记写到哪个文件（默认 `data/qsl-public.json`，只能填一个） |
 | 云函数环境变量 | `PUBLIC_READ_PATHS` | 只读代理允许读哪些文件；填 `data/qsl-public.json` 即「未授权的人只能读公开登记文件」，填 `*` 放开全部，不填＝保持旧行为 |
 
-> 云函数的部署与这三个环境变量见 [tencent-scf/README.md](tencent-scf/README.md)。
+> 云函数的部署与这些环境变量见 [tencent-scf/README.md](tencent-scf/README.md)。
 > 注意：公开登记写入用的是云函数里的令牌，前端和提交者都接触不到任何令牌。
 
 ---
@@ -260,9 +280,10 @@ node scripts/init-repo.mjs
 3. **私有仓库**：强烈建议数据仓库保持 **Private**；免费账户使用 GitHub Pages 时注意 Private Pages 需 Pro。
 4. **OAuth secret 不入前端**：`client_secret` 只存放在 Worker 的环境变量中。
 5. 定期在 GitHub 设置中审查并回收不再使用的令牌。
-6. **公开登记是唯一的对外写入口**：它由云函数用 `GITHUB_SUBMIT_TOKEN` 代写，只允许写
-   `PUBLIC_QSL_PATH` 这一个文件，只接受白名单字段并做了长度截断、限流和蜜罐；
-   前端与提交者全程拿不到令牌，也读不到任何已有数据。
+6. **公开登记是唯一的对外写入口，而且写的是独立仓库**：云函数用 `GITHUB_SUBMIT_TOKEN` 代写，
+   该令牌只授权登记库，只允许写 `PUBLIC_QSL_PATH` 这一个文件，只接受白名单字段并做了长度截断、
+   限流和蜜罐；前端与提交者全程拿不到令牌，也读不到任何已有数据。**主数据库的写权限从未出现在
+   这条链路上**，所以无权限的人再怎么提交也影响不到原数据。
 7. **只想给未授权者看公开登记、不给看全库**：给云函数配 `PUBLIC_READ_PATHS=data/qsl-public.json`，
    或在 `config.js` 里把 `guestRead` 设为 `false` 关掉游客只读入口。
 

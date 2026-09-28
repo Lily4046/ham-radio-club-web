@@ -64,25 +64,26 @@
     if (!entry) {
       throw new Error('数据尚未加载，请先调用 load()。');
     }
-    if (entry.sig !== configSig()) {
+    if (entry.sig !== sigOf(ck)) {
       throw new Error('仓库配置已变更，请重新加载数据后再操作。');
     }
     return entry;
   }
 
-  // 仓库指纹：owner/repo/branch 一变，旧缓存立即失效（避免切了仓库还显示上一个仓库的数据）
-  function configSig() {
-    var cfg = HAM.CONFIG.get();
-    return [cfg.owner, cfg.repo, cfg.branch].join('/');
+  // 仓库指纹：集合所在仓库/分支/路径一变，旧缓存立即失效
+  //（既覆盖「设置面板换了仓库」，也覆盖「公开登记改成另一个独立仓库」）
+  function sigOf(ck) {
+    var t = HAM.CONFIG.repoFor(ck);
+    return [t.owner, t.repo, t.branch, t.path].join('/');
   }
 
   /* ---------- 加载 ---------- */
   var inflight = {};
 
   function load(ck, force) {
-    var cfg = HAM.CONFIG.get();
-    var path = cfg.files[ck];
-    var sig = configSig();
+    var t = HAM.CONFIG.repoFor(ck);
+    var path = t.path;
+    var sig = sigOf(ck);
 
     // 命中缓存时直接返回，避免每次切换标签都重新请求 GitHub（切换菜单慢的主因）
     // 缓存只在「同一个 owner/repo/branch」下有效
@@ -95,7 +96,7 @@
       return inflight[ck].promise;
     }
 
-    var p = retry(function () { return HAM.GitHub.readFile(path); }, 1).then(function (r) {
+    var p = retry(function () { return HAM.GitHub.readFile(path, t); }, 1).then(function (r) {
       if (!r.exists) {
         // 游客只读：没有写权限，直接用空数据渲染，不做「自动建文件」
         if (HAM.Auth.isGuest()) {
@@ -104,7 +105,7 @@
           return emptyGuest;
         }
         var empty = { items: [] };
-        return retry(function () { return HAM.GitHub.writeFile(path, empty, null, '初始化 ' + path); }, 2).then(function (sha) {
+        return retry(function () { return HAM.GitHub.writeFile(path, empty, null, '初始化 ' + path, t); }, 2).then(function (sha) {
           cache[ck] = { data: empty, sha: sha, base: [], sig: sig };
           return empty;
         }).catch(function (e) {
@@ -145,7 +146,7 @@
 
   function getCached(ck) {
     var entry = cache[ck];
-    if (!entry || entry.sig !== configSig()) return null;
+    if (!entry || entry.sig !== sigOf(ck)) return null;
     return entry.data;
   }
 
@@ -235,19 +236,19 @@
 
   /* ---------- 提交（带冲突重试） ---------- */
   function commit(ck, message) {
-    var cfg = HAM.CONFIG.get();
-    var path = cfg.files[ck];
+    var t = HAM.CONFIG.repoFor(ck);
+    var path = t.path;
     var entry = ensure(ck);
 
     function attempt(round) {
-      return HAM.GitHub.writeFile(path, entry.data, entry.sha, message).then(function (sha) {
+      return HAM.GitHub.writeFile(path, entry.data, entry.sha, message, t).then(function (sha) {
         entry.sha = sha;
         entry.base = deepClone(entry.data.items);
         return true;
       }).catch(function (e) {
         if (e.status === 409 && round < 5) {
           // 冲突：重新拉取并三方合并后重试
-          return HAM.GitHub.readFile(path).then(function (r) {
+          return HAM.GitHub.readFile(path, t).then(function (r) {
             var latestItems = [];
             if (r.exists && r.data) {
               var d = r.data;
@@ -286,6 +287,26 @@
     return mutate(ck, function (items) { items.push(item); return item; }, message || '新增条目');
   }
 
+  // 批量新增：一次提交写入多条（用于「公开登记并入 QSL 卡」）
+  function addMany(ck, records, message) {
+    if (!records || !records.length) return Promise.resolve([]);
+    return mutate(ck, function (items) {
+      records.forEach(function (r) { items.push(r); });
+      return records;
+    }, message || ('新增 ' + records.length + ' 条'));
+  }
+
+  // 批量删除：一次提交删掉多条（用于并入后清理公开登记库）
+  function removeMany(ck, ids, message) {
+    if (!ids || !ids.length) return Promise.resolve(0);
+    return mutate(ck, function (items) {
+      for (var i = items.length - 1; i >= 0; i--) {
+        if (ids.indexOf(items[i].id) !== -1) items.splice(i, 1);
+      }
+      return ids.length;
+    }, message || ('删除 ' + ids.length + ' 条'));
+  }
+
   function updateItem(ck, id, patch, message) {
     var entry = ensure(ck);
     var target = entry.data.items.find(function (x) { return x.id === id; });
@@ -312,6 +333,8 @@
     refresh: refresh,
     reset: reset,
     addItem: addItem,
+    addMany: addMany,
+    removeMany: removeMany,
     updateItem: updateItem,
     removeItem: removeItem,
     commit: commit

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /* =========================================================================
- * 轻量自检：在 Node 里直接跑 models / store 的逻辑，不联网、不需要浏览器
+ * 轻量自检：在 Node 里直接跑 config / models / store 的逻辑，不联网、不需要浏览器
  * -------------------------------------------------------------------------
  * 用法：node scripts/selftest.mjs
  *
@@ -10,8 +10,8 @@
  *   3. 游客只读：数据文件不存在时不尝试写入
  *   4. 写入失败必须回滚内存数据（不留「幽灵记录」）
  *   5. 409 冲突：重新拉取 + 按 id 三方合并后重试
- *   6. 删除记录
- *   7. 公开 QSL 登记：模型必填项 + 云函数入库校验/只读白名单
+ *   6. 删除、批量新增/批量删除
+ *   7. 公开登记：独立仓库隔离、字段映射、云函数入库校验与只读白名单
  * ========================================================================= */
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
@@ -21,6 +21,7 @@ import vm from 'node:vm';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const require = createRequire(import.meta.url);
+const LS_KEY = 'ham.config.v1';
 
 let passed = 0;
 let failed = 0;
@@ -39,27 +40,52 @@ function eq(name, actual, expected) {
   ok(name, JSON.stringify(actual) === JSON.stringify(expected), { actual, expected });
 }
 
-// 在 vm 沙箱里加载前端的 models.js / store.js，用假的 CONFIG/Auth/GitHub 驱动
+// 在 vm 沙箱里加载前端的 config.js / models.js / store.js，
+// 用假的 localStorage + 假的 GitHub 传输层驱动，这样 repoFor / 缓存 / 回滚都是真代码。
 function createApp() {
-  const sandbox = { console, setTimeout, clearTimeout, Promise };
+  const ls = new Map();
+  const sandbox = {
+    console,
+    setTimeout,
+    clearTimeout,
+    Promise,
+    localStorage: {
+      getItem: (k) => (ls.has(k) ? ls.get(k) : null),
+      setItem: (k, v) => { ls.set(k, String(v)); },
+      removeItem: (k) => { ls.delete(k); }
+    }
+  };
   sandbox.window = sandbox;
-  sandbox.readCalls = 0;
-  sandbox.writeCalls = 0;
+  sandbox.reads = [];
+  sandbox.writes = [];
+  sandbox._guest = false;
   sandbox.HAM = {
-    CONFIG: { get: () => Object.assign({}, sandbox._cfg) },
     Auth: { isGuest: () => !!sandbox._guest },
     GitHub: {
-      readFile: (path) => { sandbox.readCalls++; return sandbox._readImpl(path); },
-      writeFile: (path, data, sha, message) => { sandbox.writeCalls++; return sandbox._writeImpl(path, data, sha, message); }
+      readFile: (path, target) => {
+        sandbox.reads.push({ path: path, target: target });
+        return sandbox._readImpl(path, target);
+      },
+      writeFile: (path, data, sha, message, target) => {
+        sandbox.writes.push({ path: path, target: target });
+        return sandbox._writeImpl(path, data, sha, message, target);
+      }
     }
   };
   sandbox._readImpl = async () => ({ exists: false, sha: null, data: null });
   sandbox._writeImpl = async () => 'sha-default';
   vm.createContext(sandbox);
-  for (const file of ['js/models.js', 'js/store.js']) {
+  for (const file of ['config.js', 'js/models.js', 'js/store.js']) {
     vm.runInContext(readFileSync(join(ROOT, file), 'utf8'), sandbox, { filename: file });
   }
   return sandbox;
+}
+
+// 模拟「设置面板」写入本地覆盖配置（config.js 会实时读取）
+function setOverride(app, patch) {
+  const raw = app.localStorage.getItem(LS_KEY);
+  const cur = raw ? JSON.parse(raw) : {};
+  app.localStorage.setItem(LS_KEY, JSON.stringify(Object.assign(cur, patch)));
 }
 
 function httpError(status, message) {
@@ -69,13 +95,6 @@ function httpError(status, message) {
 }
 
 const app = createApp();
-app._cfg = {
-  owner: 'me',
-  repo: 'ham-radio-club',
-  branch: 'main',
-  files: { lab: 'data/lab-items.json', qsl: 'data/qsl-cards.json', radio: 'data/radio-equipment.json' }
-};
-app._guest = false;
 
 console.log('\n[1] 字段规整 / 校验');
 eq('数量字符串转数字', app.HAM.Models.normalize('lab', { name: ' 电烙铁 ', quantity: '3' }),
@@ -87,21 +106,17 @@ ok('数量为空 → 必填报错', app.HAM.Models.validate('lab', Object.assign
 eq('合法数据通过', app.HAM.Models.validate('lab', Object.assign({ quantity: 0 }, labValid)), []);
 
 console.log('\n[2] 本地写入按 id 合并（409 冲突重试）');
-app._readImpl = async () => {
-  return { exists: true, sha: 'sha-remote-1', data: { items: [{ id: 'a', name: 'A', updatedAt: 'v1' }] } };
-};
+app._readImpl = async () => ({ exists: true, sha: 'sha-remote-1', data: { items: [{ id: 'a', name: 'A', updatedAt: 'v1' }] } });
 let rejectOnce = true;
 app._writeImpl = async () => {
   if (rejectOnce) {
     rejectOnce = false;
     // 远程在这期间新增了 b
-    app._readImpl = async () => {
-      return {
-        exists: true,
-        sha: 'sha-remote-2',
-        data: { items: [{ id: 'a', name: 'A', updatedAt: 'v1' }, { id: 'b', name: 'B（他人新增）' }] }
-      };
-    };
+    app._readImpl = async () => ({
+      exists: true,
+      sha: 'sha-remote-2',
+      data: { items: [{ id: 'a', name: 'A', updatedAt: 'v1' }, { id: 'b', name: 'B（他人新增）' }] }
+    });
     throw httpError(409, 'sha does not match');
   }
   return 'sha-remote-3';
@@ -128,41 +143,69 @@ eq('失败后缓存回滚，没有幽灵记录', app.HAM.Store.getCached('lab').
 
 console.log('\n[4] 仓库配置变更 → 缓存失效');
 eq('切换前已缓存', app.HAM.Store.isCached('lab'), true);
-app._cfg.owner = 'another-user';
+setOverride(app, { owner: 'another-user' });
 eq('切换 owner 后 cache 视为未命中', app.HAM.Store.isCached('lab'), false);
 eq('getCached 返回 null（不暴露上个仓库的数据）', app.HAM.Store.getCached('lab'), null);
-const before = app.readCalls;
+app._readImpl = async () => ({ exists: true, sha: 'sha-x', data: { items: [] } });
+const readsBefore = app.reads.length;
 await app.HAM.Store.load('lab');
-eq('切仓库后确实重新拉取', app.readCalls, before + 1);
+eq('切仓库后确实重新拉取', app.reads.length - readsBefore, 1);
+app.localStorage.removeItem(LS_KEY);
 
 console.log('\n[5] 游客只读：文件不存在不写盘');
-app._cfg.owner = 'me';
 app._guest = true;
-const guestWrites = app.writeCalls;
+const writesBefore = app.writes.length;
 app._readImpl = async () => ({ exists: false, sha: null, data: null });
-app._writeImpl = async () => 'x';
 await app.HAM.Store.load('qsl', true);
 eq('游客拿到空列表', app.HAM.Store.getCached('qsl').items, []);
-eq('游客未尝试写入', app.writeCalls, guestWrites);
-
-console.log('\n[6] 删除记录');
+eq('游客未尝试写入', app.writes.length - writesBefore, 0);
 app._guest = false;
+
+console.log('\n[6] 删除 / 批量增删');
 app._readImpl = async () => ({ exists: true, sha: 'sha-5', data: { items: [{ id: 'a' }, { id: 'b' }] } });
 app._writeImpl = async () => 'sha-6';
 await app.HAM.Store.refresh('radio');
 await app.HAM.Store.removeItem('radio', 'a', '删 a');
 eq('删除后只剩 b', app.HAM.Store.getCached('radio').items.map((i) => i.id), ['b']);
 
-console.log('\n[7] 公开 QSL 登记（新数据文件 + 云函数代写）');
-const publicModel = app.HAM.Models.MODELS.publicQsl;
-ok('存在 publicQsl 模型', !!publicModel);
-eq('必填字段只有呼号/日期/提交人',
-  (publicModel.fields.filter((f) => f.required)).map((f) => f.key), ['callsign', 'date', 'submitter']);
-ok('缺提交人 → 前端校验拦下',
-  app.HAM.Models.validate('publicQsl', { callsign: 'JA1ABC', date: '2025-01-05' }).length === 1);
-eq('完整记录通过前端校验',
-  app.HAM.Models.validate('publicQsl', { callsign: 'JA1ABC', date: '2025-01-05', submitter: '张三' }), []);
+await app.HAM.Store.refresh('qsl');
+let batchWrites = app.writes.length;
+await app.HAM.Store.addMany('qsl', [{ id: 'x1' }, { id: 'x2' }], '批量新增 2 条');
+eq('批量新增只提交一次', app.writes.length - batchWrites, 1);
+eq('批量新增结果', app.HAM.Store.getCached('qsl').items.map((i) => i.id), ['a', 'b', 'x1', 'x2']);
+batchWrites = app.writes.length;
+await app.HAM.Store.removeMany('qsl', ['x1', 'x2'], '批量删除');
+eq('批量删除只提交一次', app.writes.length - batchWrites, 1);
+eq('批量删除结果', app.HAM.Store.getCached('qsl').items.map((i) => i.id), ['a', 'b']);
 
+console.log('\n[7] 公开登记：独立仓库隔离 + 字段映射');
+const pubTarget = app.HAM.CONFIG.repoFor('publicQsl');
+const mainTarget = app.HAM.CONFIG.repoFor('qsl');
+eq('公开登记落在独立仓库', [pubTarget.owner, pubTarget.repo, pubTarget.branch],
+  ['Lily4046', 'ham-radio-club-public', 'main']);
+eq('主库仍是主数据库', [mainTarget.owner, mainTarget.repo, mainTarget.branch],
+  ['Lily4046', 'ham-radio-club', 'main']);
+ok('mainTarget 标记为公开仓库', mainTarget.isPublicRepo === false && pubTarget.isPublicRepo === true);
+
+app._readImpl = async () => ({
+  exists: true,
+  sha: 'p1',
+  data: { items: [{ id: 'pub_1', callsign: 'JA1ABC', date: '2026-09-28', timeUtc: '08:30', submitter: '张三', notes: '野外架台', submittedAt: '2026-09-28T09:00:00.000Z' }] }
+});
+await app.HAM.Store.refresh('publicQsl');
+const lastRead = app.reads[app.reads.length - 1];
+eq('读取公开登记确实打到独立仓库', [lastRead.target.owner, lastRead.target.repo],
+  ['Lily4046', 'ham-radio-club-public']);
+eq('读取公开登记的文件路径', lastRead.path, 'data/qsl-public.json');
+
+const pubItem = app.HAM.Store.getCached('publicQsl').items[0];
+const mapped = app.HAM.Models.toQslFromPublic(pubItem, 'lily');
+eq('并入后保留呼号/日期/时间', [mapped.callsign, mapped.date, mapped.timeUtc], ['JA1ABC', '2026-09-28', '08:30']);
+eq('并入后默认状态', [mapped.cardStatus, mapped.replied], ['未收到', '未回信']);
+eq('并入后记录来源 id（用于去重）', mapped.sourceId, 'pub_1');
+ok('并入后备注带溯源信息', mapped.notes.indexOf('公开登记') !== -1, mapped.notes);
+
+console.log('\n[8] 云函数：公开登记入库校验 + 写入目标钉死');
 const scf = require(join(ROOT, 'tencent-scf/index.js'));
 ok('云函数：缺必填被拒', !!scf._sanitizeSubmit({ callsign: '', date: '2025-01-05', submitter: 'x' }).error);
 ok('云函数：日期格式非法被拒', !!scf._sanitizeSubmit({ callsign: 'a', date: '2025/01/05', submitter: 'b' }).error);
@@ -176,6 +219,13 @@ eq('云函数：备注截断到 1000 字', submit.record.notes.length, 1000);
 eq('云函数：白名单外字段被丢弃', submit.record.evil, undefined);
 ok('云函数：自动补 id / 时间 / 来源',
   /^pub_/.test(submit.record.id) && !!submit.record.updatedAt && submit.record.source === 'public');
+
+process.env.PUBLIC_REPO_NAME = 'ham-radio-club-public';
+eq('云函数：配了环境变量后，前端传主库也写不进主库',
+  scf._publicRepoParams({ repo: 'ham-radio-club' }).repo, 'ham-radio-club-public');
+delete process.env.PUBLIC_REPO_NAME;
+eq('云函数：没配环境变量时用请求里的登记仓库',
+  scf._publicRepoParams({ repo: 'staging' }).repo, 'staging');
 
 delete process.env.PUBLIC_READ_PATHS;
 eq('只读代理：未配置白名单时保持旧行为', scf._readAllowed('data/lab-items.json'), true);
